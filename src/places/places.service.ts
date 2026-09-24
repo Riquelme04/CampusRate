@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Place, PlaceStatus } from './entities/place.entity';
 import { CreatePlaceDto } from './dto/create-place.dto';
 import { UpdatePlaceDto } from './dto/update-place.dto';
+import { ListPlacesQueryDto } from './dto/list-places-query.dto';
 
 @Injectable()
 export class PlacesService {
@@ -20,13 +25,40 @@ export class PlacesService {
     return this.places;
   }
 
+  findAllPaginated(query: ListPlacesQueryDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+
+    const places: Place[] = [];
+
+    for (const place of this.places) {
+      if (query.category === undefined || place.category === query.category) {
+        places.push(place);
+      }
+    }
+
+    const totalItems = places.length;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const debut = (page - 1) * limit;
+    const data = places.slice(debut, debut + limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    };
+  }
+
   remove(id: string): void {
     const place = this.findOne(id);
 
     if (place.reviewCount > 0) {
-      throw new ConflictException(
-        'Cannot delete a place that has reviews',
-      );
+      throw new ConflictException('Cannot delete a place that has reviews');
     }
 
     const index = this.places.indexOf(place);
@@ -61,8 +93,6 @@ export class PlacesService {
     };
 
     this.places.push(place);
-
-
 
     return place;
   }

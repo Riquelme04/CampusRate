@@ -1,7 +1,7 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
-
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ProblemDetailsFilter } from './common/filter/problem-details.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -24,7 +24,10 @@ async function bootstrap() {
     }),
   );
 
+  // Gestion uniforme des erreurs
+  app.useGlobalFilters(new ProblemDetailsFilter());
+
   await app.listen(process.env.PORT ?? 3000);
 }
 
-bootstrap();
+void bootstrap();
