@@ -4,12 +4,18 @@ import { Review } from './entities/review.entity';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { PlacesService } from '../places/places.service';
+import { JsonStorageService } from '../persistence/json-storage.service';
 
 @Injectable()
 export class ReviewsService {
-  private readonly reviews: Review[] = [];
+  constructor(
+    private readonly placesService: PlacesService,
+    private readonly jsonStorage: JsonStorageService,
+  ) {}
 
-  constructor(private readonly placesService: PlacesService) {}
+  private get reviews(): Review[] {
+    return this.jsonStorage.reviews;
+  }
 
   findAllByPlaceId(placeId: string): Review[] {
     this.placesService.findOne(placeId);
@@ -27,7 +33,10 @@ export class ReviewsService {
     return review;
   }
 
-  create(placeId: string, createReviewDto: CreateReviewDto): Review {
+  async create(
+    placeId: string,
+    createReviewDto: CreateReviewDto,
+  ): Promise<Review> {
     const place = this.placesService.findOne(placeId);
     const now = new Date().toISOString();
 
@@ -54,10 +63,18 @@ export class ReviewsService {
 
     place.reviewCount++;
 
+    await this.jsonStorage.sauvegarder({
+      places: this.jsonStorage.places,
+      reviews: this.reviews,
+    });
+
     return review;
   }
 
-  update(id: string, updateReviewDto: UpdateReviewDto): Review {
+  async update(
+    id: string,
+    updateReviewDto: UpdateReviewDto,
+  ): Promise<Review> {
     const review = this.findOne(id);
     const place = this.placesService.findOne(review.placeId);
 
@@ -78,10 +95,15 @@ export class ReviewsService {
         place.reviewCount;
     }
 
+    await this.jsonStorage.sauvegarder({
+      places: this.jsonStorage.places,
+      reviews: this.reviews,
+    });
+
     return review;
   }
 
-  remove(id: string): void {
+  async remove(id: string): Promise<void> {
     const review = this.findOne(id);
     const place = this.placesService.findOne(review.placeId);
 
@@ -103,5 +125,10 @@ export class ReviewsService {
     } else {
       place.averageRating = totalNotes / place.reviewCount;
     }
+
+    await this.jsonStorage.sauvegarder({
+      places: this.jsonStorage.places,
+      reviews: this.reviews,
+    });
   }
 }
