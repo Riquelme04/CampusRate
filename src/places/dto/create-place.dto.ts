@@ -1,5 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional,IsArray, ArrayUnique, MinLength, MaxLength,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsArray, ArrayUnique, MinLength, MaxLength } from 'class-validator';
 import { PlaceCategory, PlaceStatus } from '../entities/place.entity';
 
 export class CreatePlaceDto {

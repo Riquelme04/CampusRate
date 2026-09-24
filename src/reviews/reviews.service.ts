@@ -14,15 +14,11 @@ export class ReviewsService {
   findAllByPlaceId(placeId: string): Review[] {
     this.placesService.findOne(placeId);
 
-    return this.reviews.filter(
-      review => review.placeId === placeId,
-    );
+    return this.reviews.filter((review) => review.placeId === placeId);
   }
 
   findOne(id: string): Review {
-    const review = this.reviews.find(
-      review => review.id === id,
-    );
+    const review = this.reviews.find((review) => review.id === id);
 
     if (!review) {
       throw new NotFoundException(`Review ID ${id} pas trouvé`);
@@ -50,63 +46,62 @@ export class ReviewsService {
     let moyenne = place.averageRating;
 
     if (moyenne === null) {
-    moyenne = 0;
+      moyenne = 0;
     }
 
     place.averageRating =
-    (moyenne * place.reviewCount + review.rating)
-    / (place.reviewCount + 1);
+      (moyenne * place.reviewCount + review.rating) / (place.reviewCount + 1);
 
     place.reviewCount++;
 
-        return review;
+    return review;
+  }
+
+  update(id: string, updateReviewDto: UpdateReviewDto): Review {
+    const review = this.findOne(id);
+    const place = this.placesService.findOne(review.placeId);
+
+    const ancienneNote = review.rating;
+
+    Object.assign(review, updateReviewDto);
+    review.updatedAt = new Date().toISOString();
+
+    let moyenne = place.averageRating;
+
+    if (moyenne === null) {
+      moyenne = 0;
     }
 
- update(id: string, updateReviewDto: UpdateReviewDto): Review {
-        const review = this.findOne(id);
-        const place = this.placesService.findOne(review.placeId);
+    if (updateReviewDto.rating !== undefined) {
+      place.averageRating =
+        (moyenne * place.reviewCount - ancienneNote + review.rating) /
+        place.reviewCount;
+    }
 
-        const ancienneNote = review.rating;
+    return review;
+  }
 
-        Object.assign(review, updateReviewDto);
-        review.updatedAt = new Date().toISOString();
+  remove(id: string): void {
+    const review = this.findOne(id);
+    const place = this.placesService.findOne(review.placeId);
 
-        let moyenne = place.averageRating;
+    let moyenne = place.averageRating;
 
-        if (moyenne === null) {
-          moyenne = 0;
-        }
+    if (moyenne === null) {
+      moyenne = 0;
+    }
 
-        if (updateReviewDto.rating !== undefined) {
-          place.averageRating =
-            (moyenne * place.reviewCount - ancienneNote + review.rating)
-            / place.reviewCount;
-        }
+    const totalNotes = moyenne * place.reviewCount - review.rating;
 
-        return review;
-      }
+    const index = this.reviews.indexOf(review);
+    this.reviews.splice(index, 1);
 
-      remove(id: string): void {
-        const review = this.findOne(id);
-        const place = this.placesService.findOne(review.placeId);
+    place.reviewCount--;
 
-        let moyenne = place.averageRating;
-
-        if (moyenne === null) {
-          moyenne = 0;
-        }
-
-        const totalNotes = moyenne * place.reviewCount - review.rating;
-
-        const index = this.reviews.indexOf(review);
-        this.reviews.splice(index, 1);
-
-        place.reviewCount--;
-
-        if (place.reviewCount === 0) {
-          place.averageRating = null;
-        } else {
-          place.averageRating = totalNotes / place.reviewCount;
-        }
-      }
+    if (place.reviewCount === 0) {
+      place.averageRating = null;
+    } else {
+      place.averageRating = totalNotes / place.reviewCount;
+    }
+  }
 }

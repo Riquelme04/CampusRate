@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
+import { Injectable, NotFoundException, ConflictException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Place, PlaceStatus } from './entities/place.entity';
@@ -58,7 +55,7 @@ export class PlacesService {
     const place = this.findOne(id);
 
     if (place.reviewCount > 0) {
-      throw new ConflictException('Cannot delete a place that has reviews');
+      throw new ConflictException('On peut pas enlever une place qui a des reviews');
     }
 
     const index = this.places.indexOf(place);
