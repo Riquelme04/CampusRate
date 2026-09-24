@@ -4,6 +4,7 @@ import { PlacesService } from './places.service';
 
 @Module({
   controllers: [PlacesController],
-  providers: [PlacesService]
+  providers: [PlacesService],
+  exports: [PlacesService],
 })
 export class PlacesModule {}
