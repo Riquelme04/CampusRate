@@ -2,7 +2,7 @@ import {
   IsString,
   IsNotEmpty,
   IsEnum,
-  IsOptional,
+  ValidateIf,
   IsArray,
   ArrayUnique,
   MinLength,
@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { PlaceCategory, PlaceStatus } from '../entities/place.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 export class CreatePlaceDto {
   @ApiProperty({
     description: "Nom de l'endroit",
@@ -60,7 +61,7 @@ export class CreatePlaceDto {
     uniqueItems: true,
     default: [],
   })
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsArray()
   @IsString({ each: true })
   @ArrayUnique()
@@ -72,7 +73,7 @@ export class CreatePlaceDto {
     example: PlaceStatus.ACTIVE,
     default: PlaceStatus.ACTIVE,
   })
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsEnum(PlaceStatus)
   status?: PlaceStatus;
 }
