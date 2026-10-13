@@ -29,6 +29,42 @@ import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
 
 @ApiTags('Places')
 @ApiExtraModels(Place, ProblemDetailsDto)
+@ApiResponse({
+  status: 503,
+  description: 'Base de données temporairement indisponible',
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Service indisponible',
+        status: 503,
+        detail: 'La base de données est temporairement indisponible.',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
+@ApiResponse({
+  status: 500,
+  description: 'Erreur interne',
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Erreur interne',
+        status: 500,
+        detail: 'Une erreur interne est survenue',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
 @Controller('places')
 export class PlacesController {
   constructor(private readonly placesService: PlacesService) {}
@@ -151,6 +187,13 @@ export class PlacesController {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
         },
+        example: {
+          type: 'about:blank',
+          title: 'Données invalides',
+          status: 400,
+          detail: 'name should not be empty',
+          instance: '/api/v1/places',
+        },
       },
     },
   })
@@ -181,6 +224,15 @@ export class PlacesController {
     status: 201,
     description: 'Endroit créé avec un en-tête Location',
     type: Place,
+    headers: {
+      Location: {
+        description: "URI de l'endroit créé",
+        schema: {
+          type: 'string',
+          example: '/api/v1/places/36050069-b758-4943-a692-51d2d16c3bff',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,

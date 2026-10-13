@@ -22,7 +22,7 @@ export class Review {
     example: 5,
     minimum: 1,
     maximum: 5,
-    type: Number,
+    type: 'integer',
   })
   rating: number;
 

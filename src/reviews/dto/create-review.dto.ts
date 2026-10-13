@@ -23,11 +23,11 @@ export class CreateReviewDto {
   authorName!: string;
 
   @ApiProperty({
-    description: "Note attribuée à l'endroit, entre 1 et 5",
+    description: "Note entière attribuée à l'endroit, entre 1 et 5",
     example: 5,
     minimum: 1,
     maximum: 5,
-    type: Number,
+    type: 'integer',
   })
   @IsInt()
   @Min(1)

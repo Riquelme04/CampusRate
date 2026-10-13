@@ -26,6 +26,42 @@ import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
 
 @ApiTags('Reviews')
 @ApiExtraModels(ProblemDetailsDto)
+@ApiResponse({
+  status: 503,
+  description: 'Base de données temporairement indisponible',
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Service indisponible',
+        status: 503,
+        detail: 'La base de données est temporairement indisponible.',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
+@ApiResponse({
+  status: 500,
+  description: 'Erreur interne',
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Erreur interne',
+        status: 500,
+        detail: 'Une erreur interne est survenue',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
 @Controller()
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
@@ -71,8 +107,17 @@ export class ReviewsController {
   })
   @ApiResponse({
     status: 201,
-    description: 'review créée avec un en-tête Location',
+    description: 'Appréciation créée avec un en-tête Location',
     type: Review,
+    headers: {
+      Location: {
+        description: "URI de l'appréciation créée",
+        schema: {
+          type: 'string',
+          example: '/api/v1/reviews/c3fa3996-9b94-419e-ba8c-13269cc55f0e',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -81,6 +126,14 @@ export class ReviewsController {
       'application/problem+json': {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Données invalides',
+          status: 400,
+          detail: 'rating must not be greater than 5',
+          instance:
+            '/api/v1/places/36050069-b758-4943-a692-51d2d16c3bff/reviews',
         },
       },
     },
