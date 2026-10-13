@@ -62,11 +62,37 @@ import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
     },
   },
 })
+@ApiResponse({
+  status: 429,
+  description: 'Limite de requêtes dépassée',
+  headers: {
+    'Retry-After': {
+      description: 'Nombre de secondes à attendre avant de réessayer',
+      schema: {
+        type: 'integer',
+      },
+    },
+  },
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Trop de requêtes',
+        status: 429,
+        detail: 'ThrottlerException: Too Many Requests',
+        instance: '/api/v1/reviews/c3fa3996-9b94-419e-ba8c-13269cc55f0e',
+      },
+    },
+  },
+})
 @Controller()
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  // LISTER LES APPRÉCIATIONS D'UNe place
+  // LISTER LES APPRÉCIATIONS D'UNE PLACE
   @Get('places/:placeId/reviews')
   @ApiOperation({
     summary: "Lister les reviews d'une place",
@@ -96,7 +122,7 @@ export class ReviewsController {
     return this.reviewsService.findAllByPlaceId(placeId);
   }
 
-  // CRÉER UNE review
+  // CRÉER UNE REVIEW
   @Post('places/:placeId/reviews')
   @ApiOperation({
     summary: 'Créer une review pour un endroit',
@@ -161,7 +187,7 @@ export class ReviewsController {
     return review;
   }
 
-  // CONSULTER UNE review
+  // CONSULTER UNE REVIEW
   @Get('reviews/:id')
   @ApiOperation({
     summary: 'Consulter une review par son identifiant',
@@ -190,7 +216,7 @@ export class ReviewsController {
     return this.reviewsService.findOne(id);
   }
 
-  // MODIFIER UNe review
+  // MODIFIER UNE REVIEW
   @Patch('reviews/:id')
   @ApiOperation({
     summary: 'Modifier partiellement une review',
@@ -233,7 +259,7 @@ export class ReviewsController {
     return await this.reviewsService.update(id, updateReviewDto);
   }
 
-  // SUPPRIMER Une review
+  // SUPPRIMER UNE REVIEW
   @Delete('reviews/:id')
   @HttpCode(204)
   @ApiOperation({
