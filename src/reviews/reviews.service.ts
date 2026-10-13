@@ -71,10 +71,7 @@ export class ReviewsService {
     return review;
   }
 
-  async update(
-    id: string,
-    updateReviewDto: UpdateReviewDto,
-  ): Promise<Review> {
+  async update(id: string, updateReviewDto: UpdateReviewDto): Promise<Review> {
     const review = this.findOne(id);
     const place = this.placesService.findOne(review.placeId);
 

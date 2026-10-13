@@ -1,13 +1,30 @@
-  import { Body, Controller, Delete,Get, Param, Patch, Post, HttpCode, Res,} from '@nestjs/common';
-  import { ApiTags, ApiOperation, ApiParam, ApiResponse, ApiExtraModels, getSchemaPath, } from '@nestjs/swagger';
-  import type { Response } from 'express';
-  import { ReviewsService } from './reviews.service';
-  import { Review } from './entities/review.entity';
-  import { CreateReviewDto } from './dto/create-review.dto';
-  import { UpdateReviewDto } from './dto/update-review.dto';
-  import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
-  
-  @ApiTags('Reviews')
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  HttpCode,
+  Res,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiExtraModels,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
+import { ReviewsService } from './reviews.service';
+import { Review } from './entities/review.entity';
+import { CreateReviewDto } from './dto/create-review.dto';
+import { UpdateReviewDto } from './dto/update-review.dto';
+import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
+
+@ApiTags('Reviews')
 @ApiExtraModels(ProblemDetailsDto)
 @Controller()
 export class ReviewsController {
@@ -84,10 +101,7 @@ export class ReviewsController {
     @Body() createReviewDto: CreateReviewDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<Review> {
-    const review = await this.reviewsService.create(
-      placeId,
-      createReviewDto,
-    );
+    const review = await this.reviewsService.create(placeId, createReviewDto);
 
     response.setHeader('Location', `/api/v1/reviews/${review.id}`);
 
