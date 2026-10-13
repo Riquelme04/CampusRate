@@ -1,4 +1,5 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory } from '@nestjs/core';
 import { config } from './config/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   const configService = app.get(ConfigService);
 
@@ -26,6 +27,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Accept'],
     exposedHeaders: ['Location'],
   });
+
+  // Limite de taille des corps HTTP
+  app.useBodyParser('json', { limit: '10kb' });
+  app.useBodyParser('urlencoded', { limit: '10kb' });
 
   // Préfixe global
   app.setGlobalPrefix('api');
