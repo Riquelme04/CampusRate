@@ -15,6 +15,7 @@ import { ReviewsModule } from './reviews/reviews.module';
       validationSchema: Joi.object({
         MONGO_URI: Joi.string().required(),
         PORT: Joi.number().integer().min(1).max(65535).required(),
+        CORS_ORIGINS: Joi.string().required(),
       }),
     }),
 
