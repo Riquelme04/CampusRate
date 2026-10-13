@@ -175,6 +175,25 @@ export class ReviewsController {
       },
     },
   })
+  @ApiResponse({
+    status: 413,
+    description: 'Corps de la requête supérieur à 10 Ko',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Corps de la requête trop volumineux',
+          status: 413,
+          detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance:
+            '/api/v1/places/d6d0cbc4-2ee0-434e-b5f1-debe894f2054/reviews',
+        },
+      },
+    },
+  })
   async create(
     @Param('placeId') placeId: string,
     @Body() createReviewDto: CreateReviewDto,
@@ -248,6 +267,24 @@ export class ReviewsController {
       'application/problem+json': {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'Corps de la requête supérieur à 10 Ko',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Corps de la requête trop volumineux',
+          status: 413,
+          detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance: '/api/v1/reviews/c3fa3996-9b94-419e-ba8c-13269cc55f0e',
         },
       },
     },

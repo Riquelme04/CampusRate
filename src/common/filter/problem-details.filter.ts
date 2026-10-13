@@ -41,6 +41,13 @@ export class ProblemDetailsFilter implements ExceptionFilter {
             ? [exceptionResponse]
             : [];
     } else if (
+      exception instanceof Error &&
+      'type' in exception &&
+      exception.type === 'entity.too.large'
+    ) {
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      messages = ['Le corps de la requête dépasse la limite de 10 Ko.'];
+    } else if (
       exception instanceof MongooseError.ValidationError ||
       exception instanceof MongooseError.CastError
     ) {
@@ -83,6 +90,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       400: 'Données invalides',
       404: 'Ressource introuvable',
       409: 'Conflit',
+      413: 'Corps de la requête trop volumineux',
       415: 'Type de média non pris en charge',
       429: 'Trop de requêtes',
       500: 'Erreur interne',

@@ -234,6 +234,24 @@ export class PlacesController {
       },
     },
   })
+  @ApiResponse({
+    status: 413,
+    description: 'Corps de la requête supérieur à 10 Ko',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Corps de la requête trop volumineux',
+          status: 413,
+          detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance: '/api/v1/places/d6d0cbc4-2ee0-434e-b5f1-debe894f2054',
+        },
+      },
+    },
+  })
   async update(
     @Param('id') id: string,
     @Body() updatePlaceDto: UpdatePlaceDto,
@@ -267,6 +285,24 @@ export class PlacesController {
       'application/problem+json': {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'Corps de la requête supérieur à 10 Ko',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Corps de la requête trop volumineux',
+          status: 413,
+          detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance: '/api/v1/places',
         },
       },
     },
