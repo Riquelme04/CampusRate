@@ -30,24 +30,24 @@ import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  // LISTER LES APPRÉCIATIONS D'UN ENDROIT
+  // LISTER LES APPRÉCIATIONS D'UNe place
   @Get('places/:placeId/reviews')
   @ApiOperation({
-    summary: "Lister les appréciations d'un endroit",
+    summary: "Lister les reviews d'une place",
   })
   @ApiParam({
     name: 'placeId',
-    description: "Identifiant de l'endroit",
+    description: 'Identifiant de la place',
   })
   @ApiResponse({
     status: 200,
-    description: "Liste des appréciations de l'endroit",
+    description: 'Liste des reviews de la place',
     type: Review,
     isArray: true,
   })
   @ApiResponse({
     status: 404,
-    description: 'Endroit introuvable',
+    description: 'Place introuvable',
     content: {
       'application/problem+json': {
         schema: {
@@ -56,14 +56,14 @@ export class ReviewsController {
       },
     },
   })
-  findAllByPlaceId(@Param('placeId') placeId: string): Review[] {
+  async findAllByPlaceId(@Param('placeId') placeId: string): Promise<Review[]> {
     return this.reviewsService.findAllByPlaceId(placeId);
   }
 
-  // CRÉER UNE APPRÉCIATION
+  // CRÉER UNE review
   @Post('places/:placeId/reviews')
   @ApiOperation({
-    summary: 'Créer une appréciation pour un endroit',
+    summary: 'Créer une review pour un endroit',
   })
   @ApiParam({
     name: 'placeId',
@@ -71,7 +71,7 @@ export class ReviewsController {
   })
   @ApiResponse({
     status: 201,
-    description: 'Appréciation créée avec un en-tête Location',
+    description: 'review créée avec un en-tête Location',
     type: Review,
   })
   @ApiResponse({
@@ -87,7 +87,7 @@ export class ReviewsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Endroit introuvable',
+    description: 'Place introuvable',
     content: {
       'application/problem+json': {
         schema: {
@@ -108,23 +108,23 @@ export class ReviewsController {
     return review;
   }
 
-  // CONSULTER UNE APPRÉCIATION
+  // CONSULTER UNE review
   @Get('reviews/:id')
   @ApiOperation({
-    summary: 'Consulter une appréciation par son identifiant',
+    summary: 'Consulter une review par son identifiant',
   })
   @ApiParam({
     name: 'id',
-    description: "Identifiant de l'appréciation",
+    description: 'Identifiant du review',
   })
   @ApiResponse({
     status: 200,
-    description: 'Appréciation trouvée',
+    description: 'review trouvée',
     type: Review,
   })
   @ApiResponse({
     status: 404,
-    description: 'Appréciation introuvable',
+    description: 'review introuvable',
     content: {
       'application/problem+json': {
         schema: {
@@ -133,22 +133,22 @@ export class ReviewsController {
       },
     },
   })
-  findOne(@Param('id') id: string): Review {
+  async findOne(@Param('id') id: string): Promise<Review> {
     return this.reviewsService.findOne(id);
   }
 
-  // MODIFIER UNE APPRÉCIATION
+  // MODIFIER UNe review
   @Patch('reviews/:id')
   @ApiOperation({
-    summary: 'Modifier partiellement une appréciation',
+    summary: 'Modifier partiellement une review',
   })
   @ApiParam({
     name: 'id',
-    description: "Identifiant de l'appréciation à modifier",
+    description: 'Identifiant du review à modifier',
   })
   @ApiResponse({
     status: 200,
-    description: 'Appréciation modifiée',
+    description: 'review modifiée',
     type: Review,
   })
   @ApiResponse({
@@ -164,7 +164,7 @@ export class ReviewsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Appréciation introuvable',
+    description: 'review introuvable',
     content: {
       'application/problem+json': {
         schema: {
@@ -180,23 +180,23 @@ export class ReviewsController {
     return await this.reviewsService.update(id, updateReviewDto);
   }
 
-  // SUPPRIMER UNE APPRÉCIATION
+  // SUPPRIMER Une review
   @Delete('reviews/:id')
   @HttpCode(204)
   @ApiOperation({
-    summary: 'Supprimer une appréciation',
+    summary: 'Supprimer une review',
   })
   @ApiParam({
     name: 'id',
-    description: "Identifiant de l'appréciation à supprimer",
+    description: 'Identifiant du review à supprimer',
   })
   @ApiResponse({
     status: 204,
-    description: 'Appréciation supprimée sans contenu',
+    description: 'review supprimée sans contenu',
   })
   @ApiResponse({
     status: 404,
-    description: 'Appréciation introuvable',
+    description: 'review introuvable',
     content: {
       'application/problem+json': {
         schema: {

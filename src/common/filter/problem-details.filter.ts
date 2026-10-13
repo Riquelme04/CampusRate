@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { Error as MongooseError, mongo } from 'mongoose';
 
 type NestErrorBody = {
   message?: string | string[];
@@ -19,24 +20,46 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const request = context.getRequest<Request>();
     const response = context.getResponse<Response>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
+    let messages: string[] = [];
 
-    const exceptionResponse =
-      exception instanceof HttpException ? exception.getResponse() : undefined;
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
 
-    const body: NestErrorBody =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null
-        ? exceptionResponse
-        : {};
+      const exceptionResponse = exception.getResponse();
 
-    const messages = Array.isArray(body.message)
-      ? body.message
-      : body.message
-        ? [body.message]
-        : [];
+      const body: NestErrorBody =
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? exceptionResponse
+          : {};
+
+      messages = Array.isArray(body.message)
+        ? body.message
+        : body.message
+          ? [body.message]
+          : typeof exceptionResponse === 'string'
+            ? [exceptionResponse]
+            : [];
+    } else if (
+      exception instanceof MongooseError.ValidationError ||
+      exception instanceof MongooseError.CastError
+    ) {
+      status = HttpStatus.BAD_REQUEST;
+      messages = ['Les données fournies sont invalides.'];
+    } else if (
+      exception instanceof mongo.MongoServerError &&
+      exception.code === 11000
+    ) {
+      status = HttpStatus.CONFLICT;
+      messages = ['Une ressource avec cette valeur unique existe déjà.'];
+    } else if (
+      exception instanceof mongo.MongoNetworkError ||
+      exception instanceof mongo.MongoServerSelectionError ||
+      exception instanceof MongooseError.MongooseServerSelectionError
+    ) {
+      status = HttpStatus.SERVICE_UNAVAILABLE;
+      messages = ['La base de données est temporairement indisponible.'];
+    }
 
     const title = this.getTitle(status);
 
@@ -55,18 +78,6 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       });
   }
 
-  private getType(status: number): string {
-    const types: Record<number, string> = {
-      400: 'validation-error',
-      404: 'not-found',
-      409: 'conflict',
-      415: 'unsupported-media-type',
-      500: 'internal-error',
-    };
-
-    return types[status] ?? 'http-error';
-  }
-
   private getTitle(status: number): string {
     const titles: Record<number, string> = {
       400: 'Données invalides',
@@ -74,6 +85,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       409: 'Conflit',
       415: 'Type de média non pris en charge',
       500: 'Erreur interne',
+      503: 'Service indisponible',
     };
 
     return titles[status] ?? 'Erreur HTTP';
