@@ -1,18 +1,34 @@
-  import { Body, Controller, Get, Post, Param, Patch, Delete, Query, Res, HttpCode } from '@nestjs/common';
-  import type { Response } from 'express';
-  import { PlacesService } from './places.service';
-  import { Place } from './entities/place.entity';
-  import { CreatePlaceDto } from './dto/create-place.dto';
-  import { UpdatePlaceDto } from './dto/update-place.dto';
-  import { ListPlacesQueryDto } from './dto/list-places-query.dto';
-  import { ApiOperation, ApiTags } from '@nestjs/swagger';
-  import { ApiParam, ApiQuery, ApiResponse, ApiExtraModels, getSchemaPath} from '@nestjs/swagger';
-  import { PlaceCategory } from './entities/place.entity';
-  import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Patch,
+  Delete,
+  Query,
+  Res,
+  HttpCode,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import { PlacesService } from './places.service';
+import { Place } from './entities/place.entity';
+import { CreatePlaceDto } from './dto/create-place.dto';
+import { UpdatePlaceDto } from './dto/update-place.dto';
+import { ListPlacesQueryDto } from './dto/list-places-query.dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiExtraModels,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import { PlaceCategory } from './entities/place.entity';
+import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
 
-
-  @ApiTags('Places')
-@ApiExtraModels(Place,ProblemDetailsDto)
+@ApiTags('Places')
+@ApiExtraModels(Place, ProblemDetailsDto)
 @Controller('places')
 export class PlacesController {
   constructor(private readonly placesService: PlacesService) {}

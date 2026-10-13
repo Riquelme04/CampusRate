@@ -42,10 +42,7 @@ export class JsonStorageService implements OnModuleInit {
         reviews: Review[];
       };
 
-      if (
-        !Array.isArray(donnees?.places) ||
-        !Array.isArray(donnees?.reviews)
-      ) {
+      if (!Array.isArray(donnees?.places) || !Array.isArray(donnees?.reviews)) {
         throw new Error('Format invalide');
       }
 
