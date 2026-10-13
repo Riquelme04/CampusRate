@@ -11,20 +11,20 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { PlacesService } from './places.service';
-import { Place } from './entities/place.entity';
-import { CreatePlaceDto } from './dto/create-place.dto';
-import { UpdatePlaceDto } from './dto/update-place.dto';
-import { ListPlacesQueryDto } from './dto/list-places-query.dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  ApiOperation,
+  ApiTags,
   ApiParam,
   ApiQuery,
   ApiResponse,
   ApiExtraModels,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { PlaceCategory } from './entities/place.entity';
+import { PlacesService } from './places.service';
+import { Place, PlaceCategory } from './entities/place.entity';
+import { CreatePlaceDto } from './dto/create-place.dto';
+import { UpdatePlaceDto } from './dto/update-place.dto';
+import { ListPlacesQueryDto } from './dto/list-places-query.dto';
 import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
 
 @ApiTags('Places')
@@ -60,6 +60,32 @@ import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
         title: 'Erreur interne',
         status: 500,
         detail: 'Une erreur interne est survenue',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
+@ApiResponse({
+  status: 429,
+  description: 'Limite de requêtes dépassée',
+  headers: {
+    'Retry-After': {
+      description: 'Nombre de secondes à attendre avant de réessayer',
+      schema: {
+        type: 'integer',
+      },
+    },
+  },
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Trop de requêtes',
+        status: 429,
+        detail: 'ThrottlerException: Too Many Requests',
         instance: '/api/v1/places',
       },
     },

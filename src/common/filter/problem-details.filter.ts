@@ -84,6 +84,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       404: 'Ressource introuvable',
       409: 'Conflit',
       415: 'Type de média non pris en charge',
+      429: 'Trop de requêtes',
       500: 'Erreur interne',
       503: 'Service indisponible',
     };
