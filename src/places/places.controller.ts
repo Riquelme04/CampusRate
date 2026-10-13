@@ -58,7 +58,7 @@ export class PlacesController {
       },
     },
   })
-  findOne(@Param('id') id: string): Place {
+  async findOne(@Param('id') id: string): Promise<Place> {
     return this.placesService.findOne(id);
   }
 

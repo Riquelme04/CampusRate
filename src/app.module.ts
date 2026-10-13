@@ -22,7 +22,7 @@ import { ReviewsModule } from './reviews/reviews.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.getOrThrow<string>('database.uri'),
+        uri: configService.get<string>('database.uri'),
         autoIndex: process.env.NODE_ENV !== 'production',
       }),
     }),
