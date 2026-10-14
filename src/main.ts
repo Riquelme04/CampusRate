@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +30,35 @@ async function bootstrap() {
     .filter((origin) => origin.length > 0);
 
   app.use(helmet());
+
+  // Journalisation des opérations normales de l'API
+  const httpLogger = new Logger('HTTP');
+
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    const isApiRoute =
+      request.path === '/api' || request.path.startsWith('/api/');
+
+    if (!isApiRoute) {
+      next();
+      return;
+    }
+
+    const startedAt = performance.now();
+
+    response.once('finish', () => {
+      if (response.statusCode < 400) {
+        httpLogger.log({
+          timestamp: new Date().toISOString(),
+          method: request.method,
+          path: request.path,
+          statusCode: response.statusCode,
+          duration: `${(performance.now() - startedAt).toFixed(1)} ms`,
+        });
+      }
+    });
+
+    next();
+  });
 
   // Méthodes autorisées pour les routes de l'API
   const allowedMethods = ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'];
