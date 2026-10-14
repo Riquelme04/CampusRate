@@ -1,6 +1,13 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus} from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { ApiProperty } from '@nestjs/swagger';
+import { Error as MongooseError, mongo } from 'mongoose';
 
 type NestErrorBody = {
   message?: string | string[];
@@ -9,31 +16,74 @@ type NestErrorBody = {
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ProblemDetailsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
     const response = context.getResponse<Response>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
+    let messages: string[] = [];
 
-    const exceptionResponse =
-      exception instanceof HttpException ? exception.getResponse() : undefined;
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
 
-    const body: NestErrorBody =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null
-        ? exceptionResponse
-        : {};
+      const exceptionResponse = exception.getResponse();
 
-    const messages = Array.isArray(body.message)
-      ? body.message
-      : body.message
-        ? [body.message]
-        : [];
+      const body: NestErrorBody =
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? exceptionResponse
+          : {};
+
+      messages = Array.isArray(body.message)
+        ? body.message
+        : body.message
+          ? [body.message]
+          : typeof exceptionResponse === 'string'
+            ? [exceptionResponse]
+            : [];
+    } else if (
+      exception instanceof Error &&
+      'type' in exception &&
+      exception.type === 'entity.too.large'
+    ) {
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      messages = ['Le corps de la requête dépasse la limite de 10 Ko.'];
+    } else if (
+      exception instanceof MongooseError.ValidationError ||
+      exception instanceof MongooseError.CastError
+    ) {
+      status = HttpStatus.BAD_REQUEST;
+      messages = ['Les données fournies sont invalides.'];
+    } else if (
+      exception instanceof mongo.MongoServerError &&
+      exception.code === 11000
+    ) {
+      status = HttpStatus.CONFLICT;
+      messages = ['Une ressource avec cette valeur unique existe déjà.'];
+    } else if (
+      exception instanceof mongo.MongoNetworkError ||
+      exception instanceof mongo.MongoServerSelectionError ||
+      exception instanceof MongooseError.MongooseServerSelectionError
+    ) {
+      status = HttpStatus.SERVICE_UNAVAILABLE;
+      messages = ['La base de données est temporairement indisponible.'];
+    }
 
     const title = this.getTitle(status);
+
+    // Contexte des erreurs techniques, sans message brut ni secret
+    if (status >= 500) {
+      this.logger.error({
+        timestamp: new Date().toISOString(),
+        method: request.method,
+        path: request.path,
+        statusCode: status,
+        errorType: exception instanceof Error ? exception.name : 'UnknownError',
+        title,
+      });
+    }
 
     response
       .status(status)
@@ -50,25 +100,16 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       });
   }
 
-  private getType(status: number): string {
-    const types: Record<number, string> = {
-      400: 'validation-error',
-      404: 'not-found',
-      409: 'conflict',
-      415: 'unsupported-media-type',
-      500: 'internal-error',
-    };
-
-    return types[status] ?? 'http-error';
-  }
-
   private getTitle(status: number): string {
     const titles: Record<number, string> = {
       400: 'Données invalides',
       404: 'Ressource introuvable',
       409: 'Conflit',
+      413: 'Corps de la requête trop volumineux',
       415: 'Type de média non pris en charge',
+      429: 'Trop de requêtes',
       500: 'Erreur interne',
+      503: 'Service indisponible',
     };
 
     return titles[status] ?? 'Erreur HTTP';

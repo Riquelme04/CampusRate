@@ -2,7 +2,7 @@
 
 API REST permettant à la communauté étudiante de consulter les endroits et services du campus, puis de publier des appréciations accompagnées d’une note.
 
-Projet réalisé dans le cadre du travail pratique 1 du cours **420-514 – Collecte et interprétation des données**, session Automne 2026.
+Projet réalisé dans le cadre du travail pratique 2 du cours **420-514 — Collecte et interprétation des données**, session Automne 2026.
 
 ---
 
@@ -17,8 +17,16 @@ Projet réalisé dans le cadre du travail pratique 1 du cours **420-514 – Coll
 - [Démarrage](#démarrage)
 - [Documentation Swagger](#documentation-swagger)
 - [Contrat de l’API](#contrat-de-lapi)
+- [Création d’un endroit](#création-dun-endroit)
+- [Lister les endroits](#lister-les-endroits)
+- [Modifier un endroit](#modifier-un-endroit)
+- [Supprimer un endroit](#supprimer-un-endroit)
+- [Créer une appréciation](#créer-une-appréciation)
+- [Règles de validation](#règles-de-validation)
 - [Gestion des erreurs](#gestion-des-erreurs)
 - [Persistance des données](#persistance-des-données)
+- [Sécurité HTTP et journalisation](#sécurité-http-et-journalisation)
+- [Fonctionnalités optionnelles](#fonctionnalités-optionnelles)
 - [Tests manuels](#tests-manuels)
 - [Commandes utiles](#commandes-utiles)
 - [Choix de conception](#choix-de-conception)
@@ -37,9 +45,9 @@ CampusRate est une API REST conçue pour permettre aux personnes étudiantes de 
 - consulter les détails d’un endroit;
 - publier une appréciation associée à un endroit;
 - modifier ou supprimer une appréciation;
-- consulter les statistiques calculées d’un endroit, comme sa note moyenne et le nombre d’appréciations.
+- consulter la moyenne des notes et le nombre d’appréciations d’un endroit.
 
-Les données sont conservées dans un fichier JSON local afin de demeurer disponibles après le redémarrage de l’application.
+Le TP2 remplace la persistance JSON du TP1 par MongoDB, renforce la validation et ajoute des protections HTTP. Les données restent disponibles après le redémarrage de l’API. Le contrat public conserve les routes et la version `v1`.
 
 ---
 
@@ -47,33 +55,26 @@ Les données sont conservées dans un fichier JSON local afin de demeurer dispon
 
 ### Endroits
 
-- Création d’un endroit.
-- Consultation de la liste des endroits.
-- Filtrage par catégorie.
-- Pagination avec `page` et `limit`.
-- Consultation d’un endroit par son identifiant.
-- Modification partielle avec `PATCH`.
-- Suppression d’un endroit lorsqu’il ne possède aucune appréciation.
-- Calcul automatique de la note moyenne.
-- Calcul automatique du nombre d’appréciations.
+- Créer, lister, consulter, modifier partiellement et supprimer un endroit.
+- Filtrer la liste par catégorie et paginer les résultats.
+- Exposer la moyenne des notes et le nombre d’appréciations.
+- Refuser la suppression d’un endroit ayant des appréciations.
 
 ### Appréciations
 
-- Création d’une appréciation associée à un endroit existant.
-- Consultation des appréciations d’un endroit.
-- Consultation d’une appréciation par son identifiant.
-- Modification partielle d’une appréciation.
-- Suppression d’une appréciation.
-- Mise à jour automatique des statistiques de l’endroit associé.
+- Publier une appréciation pour un endroit existant.
+- Lister les appréciations d’un endroit et consulter une appréciation précise.
+- Modifier ou supprimer une appréciation.
+- Recalculer les statistiques de l’endroit après une création, une modification ou une suppression.
 
-### Validation et erreurs
+### Contrôles transversaux
 
-- Validation stricte des données reçues.
-- Refus des propriétés inconnues.
-- Vérification des catégories et des états autorisés.
-- Vérification que la note est comprise entre 1 et 5.
-- Réponses d’erreur au format `application/problem+json`.
-- Filtre global pour les erreurs attendues et inattendues.
+- DTO et `ValidationPipe` global.
+- Refus des propriétés inconnues et des champs contrôlés par le serveur.
+- Opérations MongoDB construites à partir de propriétés sélectionnées explicitement.
+- Erreurs au format `application/problem+json`.
+- Documentation Swagger/OpenAPI générée depuis le code.
+- CORS explicite, Helmet et options de sécurité détaillées ci-dessous.
 
 ---
 
@@ -81,10 +82,13 @@ Les données sont conservées dans un fichier JSON local afin de demeurer dispon
 
 - [NestJS](https://nestjs.com/)
 - [TypeScript](https://www.typescriptlang.org/)
-- Node.js
-- JSON
+- Node.js et npm
+- MongoDB et Mongoose
+- `@nestjs/config` et Joi
+- `class-validator` et `class-transformer`
 - Swagger/OpenAPI
-- Postman
+- Helmet et `@nestjs/throttler`
+- Swagger UI et Postman pour les vérifications
 - Git et GitHub
 
 ---
@@ -93,48 +97,35 @@ Les données sont conservées dans un fichier JSON local afin de demeurer dispon
 
 Le projet est organisé par fonctionnalité et sépare les responsabilités principales.
 
-```text
-src/
-├── common/
-│   ├── filters/
-│      └── problem-details.filter.ts
-│
-│   
-│
-├── places/
-│   ├── dto/
-│   │   ├── create-place.dto.ts
-│   │   ├── update-place.dto.ts
-│   │   └── find-places-query.dto.ts
-│   ├── places.controller.ts
-│   ├── places.service.ts
-│   └── places.module.ts
-│
-├── reviews/
-│   ├── dto/
-│   │   ├── create-review.dto.ts
-│   │   └── update-review.dto.ts
-│   ├── reviews.controller.ts
-│   ├── reviews.service.ts
-│   └── reviews.module.ts
-│
-├── persistence/
-│   ├── data/
-│   │   └── campus-rate.json
-│   └── json-data.service.ts
-│
-├── app.module.ts
-└── main.ts
-```
-
 ### Responsabilités
 
-- Les contrôleurs reçoivent les requêtes HTTP et retournent les réponses.
-- Les DTO définissent et valident les données entrantes.
-- Les services contiennent la logique métier.
-- Le service de persistance lit et écrit le fichier JSON.
-- Le filtre global transforme les exceptions en réponses `Problem Details`.
-- La documentation Swagger décrit le contrat public de l’API.
+| Composant | Responsabilité |
+|---|---|
+| Contrôleurs | Recevoir les requêtes HTTP, appeler les services et définir les réponses et en-têtes. |
+| DTO | Définir et valider les propriétés acceptées par l’API. |
+| Services | Appliquer les règles métier et coordonner les opérations. |
+| Repositories | Exécuter les recherches et écritures Mongoose. |
+| Schémas Mongoose | Décrire les documents, contraintes de stockage et index. |
+| Mappers | Produire les représentations publiques, sans `_id` ni `__v`, avec des dates ISO 8601. |
+| `src/config/database.config.ts` | Exposer l’URI MongoDB à travers la configuration NestJS. |
+| `src/app.module.ts` | Configurer Joi, MongoDB et les guards globaux. |
+| `src/main.ts` | Configurer le préfixe, le versionnement, la validation, Swagger, CORS, Helmet, les méthodes, la taille des corps et les logs HTTP. |
+| `src/common/guards/content-type.guard.ts` | Contrôler le type de contenu des requêtes POST et PATCH. |
+| `src/common/filter/problem-details.filter.ts` | Traduire les exceptions en erreurs publiques et journaliser le contexte des erreurs techniques. |
+
+### Principaux fichiers
+
+| Fonctionnalité | Fichiers |
+|---|---|
+| Configuration | `src/config/config.ts`, `src/config/database.config.ts`, `src/app.module.ts` |
+| Endroits | `src/places/places.controller.ts`, `places.service.ts`, `places.repository.ts`, `place.mapper.ts`, `places.module.ts` |
+| Modèle et validation des endroits | `src/places/entities/place.entity.ts`, `src/places/schemas/place.schema.ts`, `src/places/dto/` |
+| Appréciations | `src/reviews/reviews.controller.ts`, `reviews.service.ts`, `reviews.repository.ts`, `review.mapper.ts`, `reviews.module.ts` |
+| Modèle et validation des appréciations | `src/reviews/entities/review.entity.ts`, `src/reviews/schemas/review.schema.ts`, `src/reviews/dto/` |
+| Composants communs | `src/common/filter/` et `src/common/guards/` |
+| Démarrage | `src/main.ts` |
+
+Les fichiers des colonnes fonctionnelles abrégés sans préfixe appartiennent au même dossier que le contrôleur indiqué.
 
 ---
 
@@ -142,62 +133,86 @@ src/
 
 ### Prérequis
 
-Les logiciels suivants doivent être installés :
+- Node.js : le projet a été utilisé avec **20.19.5**.
+- npm et Git.
+- Un serveur MongoDB accessible : l’environnement local utilisé repose sur **MongoDB Community 8.0**.
+- `mongosh` pour inspecter les données, ou MongoDB Compass.
 
-- Node.js;
-- npm;
-- Git.
+MongoDB Atlas n’est pas nécessaire pour utiliser la configuration locale. Une autre installation MongoDB peut être utilisée en adaptant `MONGO_URI`.
 
-Vérifier les versions installées :
-
-```bash
-node --version
-npm --version
-git --version
-```
-
-### Cloner le projet
+### Cloner le projet et installer les dépendances
 
 ```bash
-git clone <URL_DU_DEPOT_GITHUB>
-cd <CampusRate>
-```
-
-### Installer les dépendances
-
-```bash
+git clone --branch main https://github.com/Riquelme04/CampusRate.git
+cd CampusRate
 npm ci
 ```
+
+Ces instructions supposent que la version TP2 a été intégrée à `main`. Pour examiner une PR avant sa fusion, utiliser sa branche source.
+
+`npm ci` installe les versions définies par `package-lock.json`. Ce fichier doit rester dans le dépôt.
+
+### MongoDB local sur macOS avec Homebrew
+
+Pour un poste où MongoDB n’est pas encore installé :
+
+```bash
+brew tap mongodb/brew
+brew install mongodb-community@8.0
+brew services start mongodb-community@8.0
+```
+
+Si MongoDB est déjà installé, démarrer simplement le service correspondant à la version installée.
+
+Vérifier la connexion locale :
+
+```bash
+mongosh "mongodb://127.0.0.1:27017/campusrate"
+```
+
+Sur un autre système, installer MongoDB selon sa documentation officielle, démarrer le serveur et adapter l’URI si nécessaire.
 
 ---
 
 ## Configuration
 
-Créer un fichier `.env` à la racine du projet à partir du fichier d’exemple :
+Créer le fichier local à partir du modèle :
 
 ```bash
 cp .env.example .env
 ```
 
-Le fichier `.env.example` doit contenir au minimum :
+Configuration de développement :
 
 ```env
 PORT=3000
-DATA_FILE_PATH=./data/campus-rate.json
+MONGO_URI=mongodb://127.0.0.1:27017/campusrate
+NODE_ENV=development
+CORS_ORIGINS_DEVELOPMENT=http://localhost:3000,http://localhost:5173
+CORS_ORIGINS_PRODUCTION=https://campusrate.example
 ```
 
-### Variables d’environnement
+`https://campusrate.example` est une origine fictive d’exemple, pas une application déployée. La remplacer par l’origine réellement autorisée avant d’utiliser un environnement de production.
 
-| Variable | Description | Exemple |
-|---|---|---|
-| `PORT` | Port HTTP utilisé par l’application | `3000` |
-| `DATA_FILE_PATH` | Chemin vers le fichier JSON de données | `./data/campus-rate.json` |
+| Variable | Rôle et validation |
+|---|---|
+| `PORT` | Obligatoire ; entier entre 1 et 65535. |
+| `MONGO_URI` | Obligatoire ; URI du serveur et de la base MongoDB. |
+| `NODE_ENV` | `development`, `test` ou `production` ; `development` par défaut. |
+| `CORS_ORIGINS_DEVELOPMENT` | Origines séparées par des virgules ; obligatoire hors production. |
+| `CORS_ORIGINS_PRODUCTION` | Origines séparées par des virgules ; obligatoire en production. |
 
-Le fichier `.env` ne doit pas être ajouté au dépôt Git. Il peut contenir des paramètres propres à l’environnement local.
+Joi valide la configuration au démarrage. La connexion Mongoose utilise `database.uri`, issue de `MONGO_URI`.
+
+La variable `DATA_FILE_PATH` du TP1 n’est plus utilisée. Les lectures et écritures dans le fichier JSON ont été remplacées par les repositories MongoDB.
+
+Le fichier `.env` est ignoré par Git. Ne jamais publier de mot de passe, jeton, clé privée ou URI contenant des identifiants réels. `.env.example` contient uniquement des exemples sans secrets.
 
 ---
 
 ## Démarrage
+
+MongoDB doit être disponible avant le démarrage de l’API.
 
 ### Mode développement
 
@@ -205,80 +220,61 @@ Le fichier `.env` ne doit pas être ajouté au dépôt Git. Il peut contenir des
 npm run start:dev
 ```
 
+L’API est disponible sur `http://localhost:3000/api/v1` lorsque `PORT=3000`.
 
 ### Mode production
 
 ```bash
 npm run build
-
-
-L’API sera accessible à l’adresse suivante :
-
-```text
-http://localhost:3000
+npm run start:prod
 ```
 
-Si un autre port est configuré dans `.env`, remplacer `3000` par la valeur correspondante.
+Le script `start:prod` exécute le code compilé ; il ne définit pas automatiquement `NODE_ENV=production`. L’environnement effectif dépend de la configuration fournie.
+
+En production, configurer `NODE_ENV=production` et les origines CORS correspondantes. L’auto-indexation Mongoose y est désactivée : les index nécessaires doivent être créés avant l’exploitation de cette base.
 
 ---
 
 ## Documentation Swagger
 
-La documentation interactive Swagger est disponible à l’adresse suivante :
+Swagger UI : **http://localhost:3000/swagger**.
 
-```text
-http://localhost:3000/docs
-```
+La spécification OpenAPI est générée par `SwaggerModule.createDocument()` dans `src/main.ts`, à partir des contrôleurs, DTO et modèles documentés. La configuration de génération est donc fournie dans le code source.
 
-Swagger permet de :
-
-- consulter toutes les routes disponibles;
-- voir les paramètres et les corps de requête;
-- visualiser les réponses possibles;
-- exécuter manuellement des requêtes;
-- consulter les schémas JSON;
-- tester les erreurs et la pagination.
-
-La documentation doit toujours correspondre au comportement réel de l’application.
+Swagger permet de consulter les schémas, paramètres et réponses, puis d’exécuter les requêtes avec **Try it out** et **Execute**.
 
 ---
 
 ## Contrat de l’API
 
-Toutes les routes utilisent la version majeure `v1`.
-
-Préfixe général :
-
-```text
-/api/v1
-```
+Toutes les routes utilisent le préfixe `/api/v1`. Le passage à MongoDB ne modifie pas leur nom.
 
 ### Endroits
 
 | Méthode | URI | Description |
 |---|---|---|
-| `POST` | `/api/v1/places` | Créer un endroit |
-| `GET` | `/api/v1/places` | Lister les endroits |
-| `GET` | `/api/v1/places/:id` | Consulter un endroit |
-| `PATCH` | `/api/v1/places/:id` | Modifier partiellement un endroit |
-| `DELETE` | `/api/v1/places/:id` | Supprimer un endroit |
+| POST | `/api/v1/places` | Créer un endroit |
+| GET | `/api/v1/places` | Lister, filtrer et paginer les endroits |
+| GET | `/api/v1/places/:id` | Consulter un endroit |
+| PATCH | `/api/v1/places/:id` | Modifier partiellement un endroit |
+| DELETE | `/api/v1/places/:id` | Supprimer un endroit sans appréciations |
 
 ### Appréciations imbriquées
 
 | Méthode | URI | Description |
 |---|---|---|
-| `POST` | `/api/v1/places/:placeId/reviews` | Publier une appréciation pour un endroit |
-| `GET` | `/api/v1/places/:placeId/reviews` | Lister les appréciations d’un endroit |
+| POST | `/api/v1/places/:placeId/reviews` | Publier une appréciation pour un endroit |
+| GET | `/api/v1/places/:placeId/reviews` | Lister les appréciations d’un endroit |
 
 ### Appréciations indépendantes
 
 | Méthode | URI | Description |
 |---|---|---|
-| `GET` | `/api/v1/reviews/:id` | Consulter une appréciation |
-| `PATCH` | `/api/v1/reviews/:id` | Modifier partiellement une appréciation |
-| `DELETE` | `/api/v1/reviews/:id` | Supprimer une appréciation |
+| GET | `/api/v1/reviews/:id` | Consulter une appréciation |
+| PATCH | `/api/v1/reviews/:id` | Modifier partiellement une appréciation |
+| DELETE | `/api/v1/reviews/:id` | Supprimer une appréciation |
 
-L’utilisation de `placeId` dans les routes imbriquées représente la relation réelle entre un endroit et ses appréciations. Les routes indépendantes utilisant `id` facilitent la consultation, la modification et la suppression d’une appréciation précise.
+L’imbrication des URI exprime la relation entre un endroit et ses appréciations. Les URI indépendantes permettent de gérer une appréciation individuellement. La technologie MongoDB n’apparaît pas dans les URI.
 
 ---
 
@@ -294,52 +290,40 @@ Content-Type: application/json
 ```json
 {
   "name": "Bibliothèque principale",
-  "description": "Espace calme avec prises et accès Wi-Fi.",
+  "description": "Un espace calme pour étudier et lire.",
   "category": "LIBRARY",
-  "address": "Pavillon A, local A-210",
-  "services": [
-    "WIFI",
-    "POWER_OUTLETS"
-  ],
+  "address": "Pavillon A",
+  "services": ["WIFI", "POWER_OUTLETS"],
   "status": "ACTIVE"
 }
 ```
 
 ### Réponse
 
-Code de succès :
-
 ```http
 201 Created
-Location: /api/v1/places/plc_01JABC123
+Location: /api/v1/places/11111111-1111-4111-8111-111111111111
 ```
+
+Exemple illustratif de représentation retournée ; l’identifiant et les dates réels sont générés lors de la création :
 
 ```json
 {
-  "id": "plc_01JABC123",
+  "id": "11111111-1111-4111-8111-111111111111",
   "name": "Bibliothèque principale",
-  "description": "Espace calme avec prises et accès Wi-Fi.",
+  "description": "Un espace calme pour étudier et lire.",
   "category": "LIBRARY",
-  "address": "Pavillon A, local A-210",
-  "services": [
-    "WIFI",
-    "POWER_OUTLETS"
-  ],
+  "address": "Pavillon A",
+  "services": ["WIFI", "POWER_OUTLETS"],
   "status": "ACTIVE",
   "averageRating": null,
   "reviewCount": 0,
-  "createdAt": "2026-09-24T20:00:00.000Z",
-  "updatedAt": "2026-09-24T20:00:00.000Z"
+  "createdAt": "2026-10-14T12:00:00.000Z",
+  "updatedAt": "2026-10-14T12:00:00.000Z"
 }
 ```
 
-Les champs suivants sont toujours générés par le serveur :
-
-- `id`;
-- `averageRating`;
-- `reviewCount`;
-- `createdAt`;
-- `updatedAt`.
+`id`, `createdAt`, `updatedAt`, `averageRating` et `reviewCount` sont générés ou calculés par le serveur.
 
 ---
 
@@ -351,52 +335,21 @@ GET /api/v1/places
 
 ### Paramètres de requête
 
-| Paramètre | Type | Obligatoire | Description |
-|---|---|---:|---|
-| `category` | chaîne contrôlée | Non | Filtre exact par catégorie |
-| `page` | entier positif | Non | Numéro de page |
-| `limit` | entier positif | Non | Nombre maximal d’éléments par page |
-
-Exemple :
-
-```http
-GET /api/v1/places?category=STUDY_SPACE&page=1&limit=10
+```text
+GET /api/v1/places?category=LIBRARY&page=1&limit=10
 ```
 
-La valeur maximale de `limit` est définie par l’application afin d’éviter des réponses trop volumineuses.
+| Paramètre | Règle | Valeur par défaut |
+|---|---|---|
+| `category` | Catégorie autorisée ; filtre exact facultatif. | Aucun filtre |
+| `page` | Entier supérieur ou égal à 1. | 1 |
+| `limit` | Entier entre 1 et 50. | 10 |
+
+Les endroits sont triés par `createdAt`, puis `id`, dans l’ordre croissant. Le tri n’est pas configurable par le client. Les paramètres inconnus, dont `sort`, sont refusés.
 
 ### Réponse
 
-```json
-{
-  "data": [
-    {
-      "id": "plc_01JABC123",
-      "name": "Bibliothèque principale",
-      "description": "Espace calme avec prises et accès Wi-Fi.",
-      "category": "LIBRARY",
-      "address": "Pavillon A, local A-210",
-      "services": [
-        "WIFI",
-        "POWER_OUTLETS"
-      ],
-      "status": "ACTIVE",
-      "averageRating": 4.25,
-      "reviewCount": 12,
-      "createdAt": "2026-09-24T20:00:00.000Z",
-      "updatedAt": "2026-09-24T20:30:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 10,
-    "totalItems": 1,
-    "totalPages": 1
-  }
-}
-```
-
-Lorsqu’aucun endroit ne correspond aux critères, l’API retourne une collection vide :
+La réponse sépare les ressources des métadonnées. Sans résultat :
 
 ```json
 {
@@ -410,6 +363,8 @@ Lorsqu’aucun endroit ne correspond aux critères, l’API retourne une collect
 }
 ```
 
+Pour un résultat non vide, `data` contient les endroits. `totalItems` indique le nombre d’endroits correspondant au filtre et `totalPages` le nombre de pages.
+
 ---
 
 ## Modifier un endroit
@@ -419,7 +374,7 @@ PATCH /api/v1/places/:id
 Content-Type: application/json
 ```
 
-Exemple :
+### Requête
 
 ```json
 {
@@ -428,13 +383,13 @@ Exemple :
 }
 ```
 
-Réponse :
+### Réponse
 
 ```http
 200 OK
 ```
 
-Les champs calculés et générés par le serveur ne peuvent pas être modifiés par le client.
+La réponse contient l’endroit modifié. Les propriétés omises restent inchangées. Les propriétés fournies doivent respecter les contraintes de validation. Les identifiants, les dates et les statistiques ne peuvent pas être imposés par le client.
 
 ---
 
@@ -450,15 +405,7 @@ Réponse en cas de succès :
 204 No Content
 ```
 
-La réponse ne contient aucun corps.
-
-La suppression est refusée lorsqu’un endroit possède au moins une appréciation.
-
-Dans ce cas, l’API retourne un conflit :
-
-```http
-409 Conflict
-```
+La réponse ne contient aucun corps. La suppression est refusée avec **409 Conflict** si l’endroit possède au moins une appréciation. Il faut supprimer ses appréciations avant de pouvoir supprimer l’endroit.
 
 ---
 
@@ -473,169 +420,319 @@ Content-Type: application/json
 
 ```json
 {
-  "authorName": "Samira",
+  "authorName": "Jonathan",
   "rating": 4,
-  "comment": "Endroit calme et Wi-Fi stable."
+  "comment": "Un endroit calme et agréable pour étudier."
 }
 ```
+
+`placeId` est fourni dans le chemin, pas dans le corps. Le serveur vérifie que l’endroit existe. La réponse contient `id`, `placeId`, `authorName`, `rating`, `comment`, `createdAt` et `updatedAt`.
 
 ### Réponse
 
 ```http
 201 Created
-Location: /api/v1/reviews/rev_01JXYZ789
+Location: /api/v1/reviews/22222222-2222-4222-8222-222222222222
 ```
+
+Exemple illustratif ; les identifiants et dates réels sont générés par le serveur :
 
 ```json
 {
-  "id": "rev_01JXYZ789",
-  "placeId": "plc_01JABC123",
-  "authorName": "Samira",
+  "id": "22222222-2222-4222-8222-222222222222",
+  "placeId": "11111111-1111-4111-8111-111111111111",
+  "authorName": "Jonathan",
   "rating": 4,
-  "comment": "Endroit calme et Wi-Fi stable.",
-  "createdAt": "2026-09-24T20:45:00.000Z",
-  "updatedAt": "2026-09-24T20:45:00.000Z"
+  "comment": "Un endroit calme et agréable pour étudier.",
+  "createdAt": "2026-10-14T12:10:00.000Z",
+  "updatedAt": "2026-10-14T12:10:00.000Z"
 }
 ```
 
-Une appréciation ne peut être créée que si le `placeId` correspond à un endroit existant.
+### Modifier ou supprimer une appréciation
+
+Une requête PATCH sur `/api/v1/reviews/:id` permet de modifier `authorName`, `rating` ou `comment`. Par exemple :
+
+```json
+{
+  "rating": 5
+}
+```
+
+Une modification réussie retourne 200 et l’appréciation modifiée. Une suppression avec DELETE retourne 204 sans corps. Dans les deux cas, les statistiques de l’endroit sont recalculées.
 
 ---
 
 ## Règles de validation
 
-### Endroit
+Le `ValidationPipe` global utilise `whitelist: true`, `forbidNonWhitelisted: true` et `transform: true`. Les propriétés non autorisées sont refusées avec 400 ; les paramètres numériques de pagination sont transformés et validés.
 
-- `name` est obligatoire et doit contenir un texte significatif.
-- `description` est obligatoire.
-- `category` doit être une catégorie autorisée.
-- `address` est obligatoire.
-- `services` est facultatif.
-- `services` reçoit un tableau vide par défaut.
-- Les doublons dans `services` sont refusés.
-- `status` est facultatif et vaut `ACTIVE` par défaut.
-- Les champs générés par le serveur sont refusés dans le corps de la requête.
+### DTO des endroits
 
-### Catégories autorisées
+| Propriété | Création | Contraintes |
+|---|---|---|
+| `name` | Obligatoire | Chaîne non vide, de 2 à 100 caractères. |
+| `description` | Obligatoire | Chaîne non vide, de 5 à 500 caractères. |
+| `category` | Obligatoire | Valeur de `PlaceCategory`. |
+| `address` | Obligatoire | Chaîne non vide, maximum 200 caractères. |
+| `services` | Facultative | Tableau de chaînes sans doublons ; tableau vide par défaut. |
+| `status` | Facultative | Valeur de `PlaceStatus` ; `ACTIVE` par défaut. |
 
-```text
-STUDY_SPACE
-LIBRARY
-FOOD_SERVICE
-SPORTS
-STUDENT_SERVICE
-COMPUTER_LAB
-OTHER
-```
+Catégories : `STUDY_SPACE`, `LIBRARY`, `FOOD_SERVICE`, `SPORTS`, `STUDENT_SERVICE`, `COMPUTER_LAB`, `OTHER`.
 
-### États autorisés
+États : `ACTIVE`, `TEMPORARILY_CLOSED`, `INACTIVE`.
 
-```text
-ACTIVE
-TEMPORARILY_CLOSED
-INACTIVE
-```
+### DTO des appréciations
 
-### Appréciation
+| Propriété | Création | Contraintes |
+|---|---|---|
+| `authorName` | Obligatoire | Chaîne non vide, de 2 à 100 caractères. |
+| `rating` | Obligatoire | Entier entre 1 et 5. |
+| `comment` | Obligatoire | Chaîne non vide, de 5 à 500 caractères. |
 
-- `authorName` est obligatoire.
-- `rating` est un entier compris entre 1 et 5.
-- `comment` est obligatoire.
-- La longueur minimale et maximale de `comment` est définie dans les DTO.
-- `placeId` doit correspondre à un endroit existant.
-- `id`, les dates et les valeurs calculées sont générés par le serveur.
+Les DTO de modification rendent les propriétés facultatives sans autoriser les valeurs `null`. Une propriété facultative peut être omise ; cela ne signifie pas que `null` est accepté.
+
+### Propriétés contrôlées par le serveur
+
+Le client ne peut pas imposer ou modifier `id`, `createdAt`, `updatedAt`, `averageRating` ou `reviewCount`. Le `placeId` d’une appréciation est fixé par le contexte de création et n’est pas modifiable.
+
+Les repositories sélectionnent explicitement les propriétés à créer ou à modifier. Les mises à jour utilisent `$set` et `runValidators: true` ; elles ne transmettent pas directement l’objet HTTP complet à MongoDB.
 
 ---
 
 ## Gestion des erreurs
 
-Les erreurs utilisent le type de contenu suivant :
+Le filtre global produit le type de contenu `application/problem+json` avec `type`, `title`, `status`, `detail` et `instance`. Plusieurs erreurs de validation peuvent également produire une propriété `errors`.
 
-```http
-Content-Type: application/problem+json
-```
-
-Format utilisé :
+Exemple :
 
 ```json
 {
-  "type": "[https://campusrate.example/problems/validation-error](https://campusrate.example/problems/validation-error)",
-  "title": "Validation failed",
+  "type": "about:blank",
+  "title": "Données invalides",
   "status": 400,
-  "detail": "The request contains invalid properties.",
+  "detail": "property inconnu should not exist",
   "instance": "/api/v1/places"
 }
 ```
 
-### Codes HTTP utilisés
+| Statut | Situation |
+|---|---|
+| 400 | Données, propriétés ou paramètres invalides. |
+| 404 | Endroit ou appréciation absent. |
+| 405 | Méthode interdite par le middleware de l’API. |
+| 409 | Suppression d’un endroit ayant des appréciations, ou violation d’un index unique. |
+| 413 | Corps dépassant la limite configurée. |
+| 415 | Type de contenu absent ou non pris en charge pour POST/PATCH. |
+| 429 | Limite de requêtes dépassée. |
+| 500 | Erreur inattendue ; message public générique. |
+| 503 | Indisponibilité MongoDB reconnue par le filtre. |
 
-| Code | Situation |
-|---:|---|
-| `200 OK` | Consultation ou modification réussie |
-| `201 Created` | Création réussie |
-| `204 No Content` | Suppression réussie sans corps de réponse |
-| `400 Bad Request` | Données invalides ou paramètres incorrects |
-| `404 Not Found` | Ressource inexistante |
-| `409 Conflict` | Opération incompatible avec l’état actuel |
-| `500 Internal Server Error` | Erreur technique inattendue |
-
-Une erreur interne ne doit pas exposer :
-
-- la pile d’exécution;
-- un chemin local;
-- le contenu brut du fichier JSON;
-- des informations sensibles.
+Le filtre ne révèle pas le message brut des erreurs MongoDB, les noms des collections, les chemins internes ou la chaîne de connexion. Si la base n’est pas disponible au démarrage, l’application ne termine pas normalement son initialisation.
 
 ---
 
 ## Persistance des données
 
-Les données sont stockées dans un fichier JSON local configuré avec la variable :
+Les données sont conservées dans MongoDB. L’URI provient de la configuration :
 
 ```env
-DATA_FILE_PATH=./data/campus-rate.json
+MONGO_URI=mongodb://127.0.0.1:27017/campusrate
 ```
 
-Le service de persistance :
+Les repositories utilisent les opérations asynchrones Mongoose pour lire, créer, modifier et supprimer les documents. Le fichier JSON du TP1 n’est plus utilisé comme stockage principal.
 
-- utilise les API asynchrones de `node:fs/promises`;
-- initialise le fichier s’il est absent;
-- lit les données au démarrage ou lors des opérations nécessaires;
-- écrit les changements dans le fichier JSON;
-- détecte les fichiers JSON invalides;
-- est séparé de la logique métier.
+### Collections et représentations
 
-Exemple de structure du fichier :
+La base contient deux collections : `places` et `reviews`. Chaque appréciation conserve le UUID public de son endroit dans `placeId`.
 
-```json
-{
-  "places": [],
-  "reviews": []
-}
-```
+Les identifiants publics restent des UUID générés par le serveur, comme au TP1. MongoDB conserve aussi un `_id` interne. Pour les requêtes de l’API, utiliser **`id`**, pas `_id`. Les mappers masquent `_id` et `__v` et convertissent les dates en chaînes ISO 8601.
 
-La séparation entre les services métier et la persistance permet de modifier ultérieurement le système de stockage sans réécrire les contrôleurs.
+### Statistiques et règles métier
+
+- La moyenne correspond à la somme des notes divisée par le nombre d’appréciations.
+- Sans appréciation, `averageRating` vaut `null` et `reviewCount` vaut `0`.
+- Une création, modification ou suppression d’appréciation déclenche un recalcul.
+- Supprimer un endroit ayant des appréciations produit 409. Aucune suppression en cascade n’est effectuée.
+
+### Index MongoDB
+
+| Collection | Index | Justification |
+|---|---|---|
+| `places` | `id`, unique | Recherche par identifiant public et protection contre les doublons. |
+| `places` | `{ category: 1, createdAt: 1, id: 1 }` | Correspond au filtre par catégorie et au tri de la liste paginée. |
+| `reviews` | `id`, unique | Recherche et unicité de l’identifiant public d’une appréciation. |
+| `reviews` | `placeId` | Recherche des appréciations et comptage pour un endroit. |
+
+L’index composé ne garantit pas à lui seul l’optimisation du tri lorsque le filtre par catégorie est absent. Les gains de performance n’ont pas été mesurés dans ce projet.
+
+Une violation d’index unique produit une erreur MongoDB 11000, traduite par le filtre global en 409 avec un message public générique.
+
+---
+
+## Sécurité HTTP et journalisation
+
+### CORS
+
+Les origines autorisées viennent de la variable correspondant à `NODE_ENV`. Elles sont séparées par des virgules et les espaces autour de chaque origine sont retirés. Aucune origine générique `*` n’est configurée.
+
+Les méthodes déclarées sont `GET`, `HEAD`, `POST`, `PATCH`, `DELETE` et `OPTIONS`. Les en-têtes autorisés sont `Content-Type` et `Accept` ; `Location` est exposé au navigateur.
+
+CORS contrôle la possibilité, pour un navigateur, de rendre une réponse accessible à un code d’une autre origine. Ce n’est pas une authentification : un client comme curl ou Postman peut appeler l’API, même sans origine autorisée.
+
+### Helmet
+
+Helmet ajoute des en-têtes HTTP de sécurité, notamment une politique de contenu et des protections relatives au type de contenu et à l’intégration dans une page. Il complète les autres contrôles ; il ne remplace ni les validations ni une authentification.
+
+### Protections optionnelles
+
+| Protection | Comportement |
+|---|---|
+| H1 — Rate limiting | Guard global configuré avec une limite de 10 requêtes sur 60 secondes ; dépassement : 429 et en-tête `Retry-After`. |
+| H2 — Taille du corps | Parseurs JSON et URL-encoded limités à `10kb`, soit 10 240 octets ; dépassement : 413. |
+| H3 — Content-Type | Les POST et PATCH exigent `application/json`. Un paramètre comme `charset=utf-8` est accepté par le contrôle du type de média ; type absent ou différent : 415. |
+| H4 — CORS par environnement | Liste de développement distincte de celle de production. |
+| H5 — Méthodes HTTP | Middleware sur `/api` et ses sous-chemins ; une méthode hors de la liste autorisée retourne 405 avec `Allow`. Cela ne crée pas de routes supplémentaires pour les méthodes autorisées. |
+| P1 — Filtres autorisés | Filtre MongoDB construit uniquement à partir de `category`, validée par le DTO de requête. |
+| P2 — Propriétés modifiables | Construction explicite des changements autorisés dans chaque repository. |
+
+### Journalisation — L1 et L2
+
+Les opérations sur les routes de l’API sont journalisées avec `timestamp`, `method`, `path`, `statusCode` et `duration`.
+
+- Les réponses de statut inférieur à 400 utilisent les logs normaux du `Logger` NestJS.
+- Les réponses de statut supérieur ou égal à 400 utilisent le niveau ERROR.
+- Pour les erreurs de statut supérieur ou égal à 500 prises en charge par le filtre, un événement technique supplémentaire indique le type d’erreur et le titre public.
+
+Les logs n’incluent pas le corps de la requête, les paramètres de recherche, les mots de passe, les jetons, les en-têtes d’authentification ou l’URI MongoDB complète. Aucune stack trace n’est retournée au client.
+
+### Rôle de HTTPS — T1
+
+HTTPS utilise TLS pour chiffrer les données échangées et protéger leur intégrité pendant le transport. Un certificat correctement vérifié permet au client de vérifier l’identité du serveur. HTTPS ne remplace pas l’authentification des utilisateurs ni les autorisations.
+
+La configuration actuelle fonctionne localement en HTTP. Le projet ne revendique pas les options de serveur HTTPS local, de certificat autosigné ou de redirection HTTP vers HTTPS.
+
+---
+
+## Fonctionnalités optionnelles
+
+| Code | Option | Points prévus dans l’énoncé |
+|---|---|---:|
+| M1 | Index pertinent, index unique et traitement des duplications | 6 |
+| M3 | Justification du choix entre référence et imbrication | 2 |
+| H1 | Rate limiting | 4 |
+| H2 | Limite du corps et gestion de 413 | 2 |
+| H3 | Content-Type et gestion de 415 | 2 |
+| H4 | CORS selon l’environnement | 2 |
+| H5 | Restriction explicite des méthodes | 1 |
+| P1 | Liste explicite des filtres autorisés | 2 |
+| P2 | Sélection explicite des propriétés modifiables | 2 |
+| L1 | Journalisation des opérations normales | 3 |
+| L2 | Journalisation des erreurs | 3 |
+| T1 | Explication du rôle de HTTPS dans ce README | 1 |
+| **Total présenté** | | **30** |
+
+Ce tableau identifie les réalisations et les points prévus par l’énoncé ; il ne garantit pas la note. Leur attribution dépend de l’évaluation, de leur démonstration et de la règle empêchant de compter plusieurs fois exactement le même travail.
+
+Les options M2, P3, T2, T3, T4, A1 et A2 ne sont pas revendiquées.
 
 ---
 
 ## Tests manuels
 
-Les scénarios suivants doivent être vérifiés avec Swagger UI ou Postman :
+**Vidéo de démonstration du TP2 :** [Voir la vidéo](https://uploadnow.io/files/qhH2g3j).
 
-| # | Scénario | Résultat attendu |
+Les scénarios ci-dessous constituent le document de vérification manuelle. Ils indiquent les résultats attendus, pas un relevé automatique de tests exécutés.
+
+Utiliser Swagger UI sur `/swagger`. Conserver le même identifiant public pendant les huit étapes ; ne pas utiliser le `_id` interne de MongoDB et ne pas supprimer la ressource pendant la démonstration.
+
+### Les huit scénarios obligatoires
+
+| Nº | Action | Résultat attendu |
 |---:|---|---|
-| 1 | Créer un endroit valide | `201 Created` |
-| 2 | Consulter un endroit existant | `200 OK` |
-| 3 | Créer une appréciation valide | `201 Created` |
-| 4 | Lister les appréciations d’un endroit | `200 OK` |
-| 5 | Modifier un endroit | `200 OK` |
-| 6 | Envoyer une note invalide | `400 Bad Request` |
-| 7 | Consulter une ressource inexistante | `404 Not Found` |
-| 8 | Supprimer un endroit possédant des appréciations | `409 Conflict` |
-| 9 | Filtrer et paginer les endroits | `200 OK` avec métadonnées |
-| 10 | Redémarrer l’application et vérifier les données | Données conservées |
+| 1 | POST valide avec le corps A ci-dessous. | 201, `Location`, UUID et dates générés. |
+| 2 | GET de l’endroit créé ; rechercher son `id` dans MongoDB. | 200 et document présent dans `places`. |
+| 3 | Arrêter uniquement l’API avec Ctrl+C, relancer `npm run start:dev`, puis refaire le GET avec le même `id`. | 200 ; la ressource est toujours présente. |
+| 4 | Refaire le POST en retirant `name` du corps A. | 400, erreur de propriété obligatoire. |
+| 5 | Refaire le POST en remplaçant `category` par `"Maison"`. | 400, catégorie non autorisée. |
+| 6 | Refaire le POST en ajoutant `"inconnu": "test"`. | 400, propriété non autorisée. |
+| 7 | PATCH du même endroit avec le corps B ; refaire le GET. | 200 et nouveau nom enregistré. |
+| 8 | PATCH avec le corps C ; refaire le GET. | 400 ; moyenne et nombre d’appréciations restent inchangés. |
 
+Corps A — création valide :
 
+```json
+{
+  "name": "Test vidéo Swagger",
+  "description": "Un endroit pour la démonstration du TP2.",
+  "category": "LIBRARY",
+  "address": "Pavillon A"
+}
+```
+
+Corps B — modification valide :
+
+```json
+{
+  "name": "Test vidéo modifié"
+}
+```
+
+Corps C — modification interdite :
+
+```json
+{
+  "averageRating": 5,
+  "reviewCount": 100
+}
+```
+
+Inspection avec le shell :
+
+```bash
+mongosh "mongodb://127.0.0.1:27017/campusrate"
+```
+
+Dans `mongosh`, remplacer le texte par le véritable UUID retourné lors de la création :
+
+```javascript
+db.places.findOne({ id: "UUID_RETOURNE_PAR_API" })
+```
+
+### Vérifications complémentaires des règles métier
+
+| Action | Résultat attendu |
+|---|---|
+| Créer deux appréciations avec les notes 4 et 2 pour un endroit sans appréciations. | Moyenne 3 et nombre 2. |
+| Modifier la note 2 pour la remplacer par 5. | Moyenne 4,5 et nombre 2. |
+| Tenter de supprimer cet endroit. | 409, endroit conservé. |
+| Supprimer l’appréciation de note 4. | Moyenne 5 et nombre 1. |
+| Supprimer la dernière appréciation. | Moyenne `null` et nombre 0. |
+| Supprimer l’endroit désormais sans appréciations. | 204 ; une consultation ultérieure retourne 404. |
+| Envoyer une appréciation avec `rating: 6`. | 400. |
+
+### Vérifications des options
+
+| Option | Démonstration attendue |
+|---|---|
+| M1 | Inspecter `db.places.getIndexes()` et `db.reviews.getIndexes()` ; vérifier le refus d’une duplication d’`id` et la traduction en 409 lorsqu’elle atteint l’API. |
+| M3 | Expliquer la relation `reviews.placeId` et le choix de collections séparées. |
+| H1 | Répéter plus de dix appels sur une même route dans la fenêtre ; observer 429 et `Retry-After`, puis un succès après le délai. |
+| H2 | Envoyer un corps JSON de plus de 10 240 octets ; observer 413. |
+| H3 | Envoyer POST/PATCH en `text/plain` ; observer 415. Vérifier une requête JSON normale. |
+| H4 | Comparer une origine autorisée et une origine non autorisée en développement, puis avec la configuration de production ; vérifier `Access-Control-Allow-Origin`. |
+| H5 | Envoyer PUT sur `/api/v1/places` ; observer 405 et `Allow`. Vérifier que GET et le preflight OPTIONS fonctionnent. |
+| P1 | Tester `category=LIBRARY`, puis un filtre inconnu ou une structure comme `category[$ne]=LIBRARY` ; le premier est accepté et les autres refusés avec 400. |
+| P2 | Inspecter la sélection des champs dans les repositories et démontrer un PATCH valide puis un PATCH contenant un champ interdit. |
+| L1 | Observer le log d’une requête réussie avec date, méthode, chemin, statut et durée. |
+| L2 | Observer le log d’un 404, puis, dans l’environnement local de test, d’une indisponibilité MongoDB ; relancer MongoDB et confirmer le retour à un fonctionnement normal. |
+| T1 | Présenter l’explication de HTTPS dans ce README. |
+
+Les clients curl ou Postman peuvent compléter Swagger pour les contrôles portant sur les en-têtes, les méthodes ou la taille du corps. Vérifier les corps de réponse et l’état de la base, pas uniquement les statuts.
+
+La limite de requêtes peut provoquer 429 pendant une séance de vérification. Attendre le délai `Retry-After` avant de reprendre un autre scénario.
+
+---
 
 ## Commandes utiles
 
@@ -651,10 +748,11 @@ Démarrer en développement :
 npm run start:dev
 ```
 
-Compiler le projet :
+Compiler et démarrer le code compilé :
 
 ```bash
 npm run build
+npm run start:prod
 ```
 
 Exécuter le lint :
@@ -663,19 +761,19 @@ Exécuter le lint :
 npm run lint
 ```
 
-Exécuter les tests :
+Scripts de tests disponibles dans le projet :
 
 ```bash
 npm test
-```
-
-Exécuter les tests en mode couverture :
-
-```bash
 npm run test:cov
+npm run test:e2e
 ```
 
-Vérifier le projet avant la remise :
+La présence de ces scripts ne garantit pas qu’une suite complète couvre les fonctionnalités du TP2. La vérification manuelle et la vidéo restent nécessaires.
+
+### Avant la remise
+
+Exécuter sur la version à remettre :
 
 ```bash
 npm ci
@@ -683,60 +781,85 @@ npm run lint
 npm run build
 ```
 
+Ces commandes vérifient l’installation reproductible, le lint et la compilation. Elles ne remplacent pas la démonstration du comportement de l’API. Le script de lint peut modifier la mise en forme ; vérifier ensuite `git status`.
+
+Éléments à remettre selon l’énoncé :
+
+- Dépôt GitHub et code source.
+- Lien accessible de la vidéo des fonctionnalités.
+- `.env.example` sans secrets.
+- README à jour.
+- Documentation Swagger/OpenAPI et sa configuration de génération.
+- Scénarios manuels décrits ci-dessus, ou collection Postman correspondante.
+- Identification des options réalisées.
+- Déclaration d’intégrité et IAGraphie demandées par le Cégep.
+
 ---
 
 ## Choix de conception
 
 | Choix | Décision | Justification |
 |---|---|---|
-| Nom de ressource | `places` | Représente les endroits évalués et respecte le pluriel anglais en minuscules |
-| Nom de ressource | `reviews` | Représente les appréciations et respecte les conventions REST |
-| Versionnement | `/api/v1` | Permet de faire évoluer le contrat sans casser les anciennes versions |
-| Appréciations imbriquées | `/places/:placeId/reviews` | Exprime clairement la relation entre un endroit et ses appréciations |
-| Appréciations indépendantes | `/reviews/:id` | Facilite la consultation, la modification et la suppression d’une appréciation précise |
-| Création | `POST` | Utilisé pour créer une nouvelle ressource |
-| Consultation | `GET` | Utilisé pour lire des ressources sans les modifier |
-| Modification | `PATCH` | Utilisé pour une modification partielle |
-| Suppression | `DELETE` | Utilisé pour supprimer une ressource |
-| Création réussie | `201 Created` | Indique qu’une ressource a été créée |
-| En-tête `Location` | Inclus après une création | Permet de retrouver la nouvelle ressource |
-| Suppression réussie | `204 No Content` | L’opération réussit sans retourner de représentation |
-| Ressource inexistante | `404 Not Found` | La ressource demandée n’existe pas |
-| État incompatible | `409 Conflict` | La suppression d’un endroit avec appréciations est refusée |
-| Erreur uniforme | `Problem Details` | Fournit une structure cohérente pour toutes les erreurs |
-| Pagination | Objet `data` et `pagination` | Sépare les résultats des métadonnées de navigation |
+| Noms des ressources | `places` et `reviews` | Noms anglais, au pluriel et sans verbe d’action. |
+| Versionnement | `/api/v1` | Conserve le contrat du TP1 malgré le changement de stockage. |
+| URI imbriquée | `/places/:placeId/reviews` | Exprime la relation entre un endroit et ses appréciations. |
+| URI indépendante | `/reviews/:id` | Permet de gérer une appréciation individuellement. |
+| Création | POST et 201 | Crée une ressource et retourne son URI dans Location. |
+| Consultation et modification | GET/PATCH et 200 | Retourne la représentation consultée ou modifiée. |
+| Suppression | DELETE et 204 | Confirme la suppression sans corps de réponse. |
+| Ressource absente | 404 | Distingue l’absence de ressource d’une entrée invalide. |
+| Suppression interdite ou doublon | 409 | Signale un conflit avec l’état ou l’intégrité des données. |
+| Pagination | `data` et `pagination` | Sépare les ressources des métadonnées. |
+| Identifiant public | UUID dans `id` | Préserve les identifiants du TP1. |
+| Sérialisation | Mappers | Masque les propriétés MongoDB internes et expose les dates en ISO 8601. |
+| Erreurs | Problem Details | Fournit une représentation uniforme. |
+
+### Référence plutôt qu’imbrication — M3
+
+Les appréciations sont conservées séparément parce qu’elles ont leurs propres routes et peuvent être consultées, modifiées ou supprimées individuellement. Cela évite de faire croître sans limite un tableau dans chaque document d’endroit.
+
+L’imbrication faciliterait la lecture d’un endroit avec toutes ses appréciations dans un même document. En revanche, elle conviendrait moins au cycle de vie indépendant des appréciations et à leur nombre potentiellement croissant.
+
+Ce choix implique des opérations supplémentaires pour vérifier l’endroit parent et recalculer ses statistiques. La référence `placeId` n’est pas une clé étrangère automatiquement vérifiée par MongoDB : les services appliquent la règle d’existence du parent.
+
+### Appui sur les notes de cours
+
+Le projet s’appuie sur les notes de cours, avec du code adapté aux exigences de CampusRate. La configuration, les schémas, les repositories et la transformation des documents suivent les principes du [laboratoire MongoDB](https://github.com/cegepmv/420-514/blob/main/content/6-noSql-DB/laboratoire-mongodb-energy-api.md). Les protections suivent les principes des [notes de sécurité](https://github.com/cegepmv/420-514/blob/main/content/7-secure-api/2-securite-api-mongodb.md). Les choix d’implémentation ne sont pas tous reproduits mot pour mot des exemples.
 
 ---
 
 ## Limites connues
 
-- Les données sont conservées dans un fichier JSON local.
-- L’application ne possède pas encore de système d’authentification.
-- L’API ne gère pas plusieurs utilisateurs connectés.
-- Le fichier JSON n’est pas adapté à une charge élevée ou à plusieurs instances simultanées.
-- Les modifications concurrentes du fichier doivent être limitées.
-- Les appréciations ne sont pas associées à un compte utilisateur réel.
+- Aucune authentification JWT ni autorisation RBAC n’est implémentée ; les routes métier sont publiques.
+- La démonstration locale utilise HTTP. Un déploiement réel exige une configuration adaptée du transport, du réseau et des comptes MongoDB.
+- Le MongoDB local utilisé pour les essais ne constitue pas une configuration de production sécurisée.
+- Les compteurs de rate limiting utilisent le stockage local au processus ; ils ne sont pas partagés entre plusieurs instances.
+- Les statistiques sont recalculées par des opérations distinctes de l’écriture de l’appréciation. Sans transaction, leur exactitude n’est pas garantie face à des écritures concurrentes ou à une interruption entre ces opérations.
+- La vérification des appréciations avant suppression et la suppression de l’endroit ne sont pas atomiques ; une création concurrente reste une limite connue.
+- Les appréciations d’un endroit sont retournées sans pagination ; le recalcul charge toutes ses appréciations.
+- Le nom d’un endroit n’est pas unique ; l’unicité imposée concerne les identifiants.
+- Swagger reste exposé dans la configuration actuelle, y compris lorsque `NODE_ENV=production`.
 
 ---
 
 ## Utilisation de l’intelligence artificielle
 
-L’intelligence artificielle a été utilisée comme outil d’aide à la rédaction, à la compréhension, à la révision et au diagnostic.
+ChatGPT/Codex a été utilisé pour expliquer des erreurs et des mécanismes, commenter des solutions, comparer des stratégies, aider au diagnostic, proposer et adapter du code, préparer des vérifications et rédiger de la documentation.
 
-L’utilisation de l’IA ne remplace pas les décisions de conception ni la compréhension du code. Les routes, validations, réponses, commandes et exemples présentés dans ce document doivent être vérifiés avec l’implémentation réelle.
+Cette mention ne remplace pas la déclaration officielle ni ne certifie la conformité de chaque usage aux règles du cours. La déclaration IAGraphie doit décrire l’aide réellement reçue, y compris les propositions de code et de documentation. L’étudiant demeure responsable du code conservé, de sa compréhension, de son fonctionnement et de l’exactitude des informations remises.
 
-La déclaration d’intégrité intellectuelle et la déclaration produite avec IAGraphie sont remises séparément conformément aux consignes du travail.
+**Déclaration d’intégrité/IAGraphie :** fournie dans le document Word inclus dans le ZIP de remise.
 
 ---
 
 ## Auteur
 
-**Nom :** `<Jonathan Valadez-Riquelme>`
+**Nom :** Jonathan Valadez-Riquelme
 
-**Cours :** 420-514 – Collecte et interprétation des données
+**Cours :** 420-514 — Collecte et interprétation des données
 
-**Travail :** TP1 – CampusRate
+**Travail :** TP2 — CampusRate
 
 **Session :** Automne 2026
 
-**Dépôt GitHub :** `<[https://github.com/Riquelme04/CampusRate.git)>`
+**Dépôt GitHub :** [Riquelme04/CampusRate](https://github.com/Riquelme04/CampusRate)

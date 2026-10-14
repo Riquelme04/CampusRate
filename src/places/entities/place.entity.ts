@@ -50,6 +50,8 @@ export class Place {
   averageRating: number | null;
 
   @ApiProperty({
+    type: 'integer',
+    minimum: 0,
     example: 2,
     description: "Nombre d'appréciations",
   })

@@ -1,18 +1,96 @@
-  import { Body, Controller, Get, Post, Param, Patch, Delete, Query, Res, HttpCode } from '@nestjs/common';
-  import type { Response } from 'express';
-  import { PlacesService } from './places.service';
-  import { Place } from './entities/place.entity';
-  import { CreatePlaceDto } from './dto/create-place.dto';
-  import { UpdatePlaceDto } from './dto/update-place.dto';
-  import { ListPlacesQueryDto } from './dto/list-places-query.dto';
-  import { ApiOperation, ApiTags } from '@nestjs/swagger';
-  import { ApiParam, ApiQuery, ApiResponse, ApiExtraModels, getSchemaPath} from '@nestjs/swagger';
-  import { PlaceCategory } from './entities/place.entity';
-  import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Patch,
+  Delete,
+  Query,
+  Res,
+  HttpCode,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import {
+  ApiOperation,
+  ApiTags,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiExtraModels,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import { PlacesService } from './places.service';
+import { Place, PlaceCategory } from './entities/place.entity';
+import { CreatePlaceDto } from './dto/create-place.dto';
+import { UpdatePlaceDto } from './dto/update-place.dto';
+import { ListPlacesQueryDto } from './dto/list-places-query.dto';
+import { ProblemDetailsDto } from '../common/filter/problem-details.dto';
 
-
-  @ApiTags('Places')
-@ApiExtraModels(Place,ProblemDetailsDto)
+@ApiTags('Places')
+@ApiExtraModels(Place, ProblemDetailsDto)
+@ApiResponse({
+  status: 503,
+  description: 'Base de données temporairement indisponible',
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Service indisponible',
+        status: 503,
+        detail: 'La base de données est temporairement indisponible.',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
+@ApiResponse({
+  status: 500,
+  description: 'Erreur interne',
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Erreur interne',
+        status: 500,
+        detail: 'Une erreur interne est survenue',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
+@ApiResponse({
+  status: 429,
+  description: 'Limite de requêtes dépassée',
+  headers: {
+    'Retry-After': {
+      description: 'Nombre de secondes à attendre avant de réessayer',
+      schema: {
+        type: 'integer',
+      },
+    },
+  },
+  content: {
+    'application/problem+json': {
+      schema: {
+        $ref: getSchemaPath(ProblemDetailsDto),
+      },
+      example: {
+        type: 'about:blank',
+        title: 'Trop de requêtes',
+        status: 429,
+        detail: 'ThrottlerException: Too Many Requests',
+        instance: '/api/v1/places',
+      },
+    },
+  },
+})
 @Controller('places')
 export class PlacesController {
   constructor(private readonly placesService: PlacesService) {}
@@ -42,7 +120,7 @@ export class PlacesController {
       },
     },
   })
-  findOne(@Param('id') id: string): Place {
+  async findOne(@Param('id') id: string): Promise<Place> {
     return this.placesService.findOne(id);
   }
 
@@ -135,6 +213,13 @@ export class PlacesController {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
         },
+        example: {
+          type: 'about:blank',
+          title: 'Données invalides',
+          status: 400,
+          detail: 'name should not be empty',
+          instance: '/api/v1/places',
+        },
       },
     },
   })
@@ -145,6 +230,42 @@ export class PlacesController {
       'application/problem+json': {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'Corps de la requête supérieur à 10 Ko',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Corps de la requête trop volumineux',
+          status: 413,
+          detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance: '/api/v1/places/d6d0cbc4-2ee0-434e-b5f1-debe894f2054',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 415,
+    description: 'Content-Type absent ou non pris en charge',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Type de média non pris en charge',
+          status: 415,
+          detail: 'Le Content-Type doit être application/json.',
+          instance: '/api/v1/places/d6d0cbc4-2ee0-434e-b5f1-debe894f2054',
         },
       },
     },
@@ -165,6 +286,15 @@ export class PlacesController {
     status: 201,
     description: 'Endroit créé avec un en-tête Location',
     type: Place,
+    headers: {
+      Location: {
+        description: "URI de l'endroit créé",
+        schema: {
+          type: 'string',
+          example: '/api/v1/places/36050069-b758-4943-a692-51d2d16c3bff',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -173,6 +303,60 @@ export class PlacesController {
       'application/problem+json': {
         schema: {
           $ref: getSchemaPath(ProblemDetailsDto),
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflit avec une valeur unique existante',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Conflit',
+          status: 409,
+          detail: 'Une ressource avec cette valeur unique existe déjà.',
+          instance: '/api/v1/places',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'Corps de la requête supérieur à 10 Ko',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Corps de la requête trop volumineux',
+          status: 413,
+          detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance: '/api/v1/places',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 415,
+    description: 'Content-Type absent ou non pris en charge',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Type de média non pris en charge',
+          status: 415,
+          detail: 'Le Content-Type doit être application/json.',
+          instance: '/api/v1/places',
         },
       },
     },

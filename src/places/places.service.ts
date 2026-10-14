@@ -1,119 +1,104 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { Place, PlaceStatus } from './entities/place.entity';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import { Place } from './entities/place.entity';
 import { CreatePlaceDto } from './dto/create-place.dto';
 import { UpdatePlaceDto } from './dto/update-place.dto';
 import { ListPlacesQueryDto } from './dto/list-places-query.dto';
-import { JsonStorageService } from '../persistence/json-storage.service';
+import { PlacesRepository } from './places.repository';
+import { ReviewsRepository } from '../reviews/reviews.repository';
+import { toPlace } from './place.mapper';
 
 @Injectable()
 export class PlacesService {
-  constructor(private readonly jsonStorage: JsonStorageService) {}
+  constructor(
+    private readonly placesRepository: PlacesRepository,
+    private readonly reviewsRepository: ReviewsRepository,
+  ) {}
 
-  // Utilise le tableau chargé depuis le fichier JSON
-  private get places(): Place[] {
-    return this.jsonStorage.places;
-  }
+  async findOne(id: string): Promise<Place> {
+    const document = await this.placesRepository.findById(id);
 
-  findOne(id: string): Place {
-    const place = this.places.find((place) => place.id === id);
-
-    if (!place) {
-      throw new NotFoundException(` ID ${id} pas trouvé`);
+    if (!document) {
+      throw new NotFoundException(`Endroit ID ${id} pas trouvé`);
     }
 
-    return place;
+    return toPlace(document);
   }
 
-  findAll(): Place[] {
-    return this.places;
+  async findAll(): Promise<Place[]> {
+    const documents = await this.placesRepository.findAll();
+    return documents.map(toPlace);
   }
 
-  findAllPaginated(query: ListPlacesQueryDto) {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
+  async findAllPaginated(query: ListPlacesQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
 
-    const places: Place[] = [];
+    const documents = await this.placesRepository.findPaginated(
+      page,
+      limit,
+      query.category,
+    );
 
-    for (const place of this.places) {
-      if (query.category === undefined || place.category === query.category) {
-        places.push(place);
-      }
-    }
-
-    const totalItems = places.length;
-    const totalPages = Math.ceil(totalItems / limit);
-
-    const debut = (page - 1) * limit;
-    const data = places.slice(debut, debut + limit);
+    const totalItems = await this.placesRepository.count(query.category);
 
     return {
-      data,
+      data: documents.map(toPlace),
       pagination: {
         page,
         limit,
         totalItems,
-        totalPages,
+        totalPages: Math.ceil(totalItems / limit),
       },
     };
   }
 
-  async remove(id: string): Promise<void> {
-    const place = this.findOne(id);
+  async create(dto: CreatePlaceDto): Promise<Place> {
+    const document = await this.placesRepository.create(dto);
+    return toPlace(document);
+  }
 
-    if (place.reviewCount > 0) {
+  async update(id: string, dto: UpdatePlaceDto): Promise<Place> {
+    const document = await this.placesRepository.updateById(id, dto);
+
+    if (!document) {
+      throw new NotFoundException(`Endroit ID ${id} pas trouvé`);
+    }
+
+    return toPlace(document);
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.findOne(id);
+
+    const reviewCount = await this.reviewsRepository.countByPlaceId(id);
+
+    if (reviewCount > 0) {
       throw new ConflictException(
-        'On peut pas enlever une place qui a des reviews',
+        'Impossible de supprimer un endroit qui possède des reviews',
       );
     }
 
-    const index = this.places.indexOf(place);
-    this.places.splice(index, 1);
-
-    await this.jsonStorage.sauvegarder({
-      places: this.places,
-      reviews: this.jsonStorage.reviews,
-    });
+    await this.placesRepository.deleteById(id);
   }
 
-  async update(id: string, updatePlaceDto: UpdatePlaceDto): Promise<Place> {
-    const place = this.findOne(id);
+  async refreshStatistics(placeId: string): Promise<void> {
+    const reviews = await this.reviewsRepository.findAllByPlaceId(placeId);
+    const reviewCount = reviews.length;
 
-    Object.assign(place, updatePlaceDto);
-    place.updatedAt = new Date().toISOString();
+    const averageRating =
+      reviewCount === 0
+        ? null
+        : reviews.reduce((total, review) => total + review.rating, 0) /
+          reviewCount;
 
-    await this.jsonStorage.sauvegarder({
-      places: this.places,
-      reviews: this.jsonStorage.reviews,
-    });
-
-    return place;
-  }
-
-  async create(createPlaceDto: CreatePlaceDto): Promise<Place> {
-    const now = new Date().toISOString();
-
-    const place: Place = {
-      id: randomUUID(),
-      name: createPlaceDto.name,
-      description: createPlaceDto.description,
-      category: createPlaceDto.category,
-      address: createPlaceDto.address,
-      services: createPlaceDto.services ?? [],
-      status: createPlaceDto.status ?? PlaceStatus.ACTIVE,
-      averageRating: null,
-      reviewCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.places.push(place);
-
-    await this.jsonStorage.sauvegarder({
-      places: this.places,
-      reviews: this.jsonStorage.reviews,
-    });
-
-    return place;
+    await this.placesRepository.updateStatistics(
+      placeId,
+      averageRating,
+      reviewCount,
+    );
   }
 }

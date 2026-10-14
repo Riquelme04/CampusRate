@@ -1,134 +1,66 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { Review } from './entities/review.entity';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { PlacesService } from '../places/places.service';
-import { JsonStorageService } from '../persistence/json-storage.service';
+import { ReviewsRepository } from './reviews.repository';
+import { toReview } from './review.mapper';
 
 @Injectable()
 export class ReviewsService {
   constructor(
     private readonly placesService: PlacesService,
-    private readonly jsonStorage: JsonStorageService,
+    private readonly reviewsRepository: ReviewsRepository,
   ) {}
 
-  private get reviews(): Review[] {
-    return this.jsonStorage.reviews;
+  async findAllByPlaceId(placeId: string): Promise<Review[]> {
+    await this.placesService.findOne(placeId);
+
+    const documents = await this.reviewsRepository.findAllByPlaceId(placeId);
+
+    return documents.map(toReview);
   }
 
-  findAllByPlaceId(placeId: string): Review[] {
-    this.placesService.findOne(placeId);
+  async findOne(id: string): Promise<Review> {
+    const document = await this.reviewsRepository.findById(id);
 
-    return this.reviews.filter((review) => review.placeId === placeId);
+    if (!document) {
+      throw new NotFoundException(`Review ID ${id} pas trouvée`);
+    }
+
+    return toReview(document);
   }
 
-  findOne(id: string): Review {
-    const review = this.reviews.find((review) => review.id === id);
+  async create(placeId: string, dto: CreateReviewDto): Promise<Review> {
+    await this.placesService.findOne(placeId);
 
-    if (!review) {
-      throw new NotFoundException(`Review ID ${id} pas trouvé`);
-    }
+    const document = await this.reviewsRepository.create(placeId, dto);
 
-    return review;
+    await this.placesService.refreshStatistics(placeId);
+
+    return toReview(document);
   }
 
-  async create(
-    placeId: string,
-    createReviewDto: CreateReviewDto,
-  ): Promise<Review> {
-    const place = this.placesService.findOne(placeId);
-    const now = new Date().toISOString();
+  async update(id: string, dto: UpdateReviewDto): Promise<Review> {
+    const review = await this.findOne(id);
+    await this.placesService.findOne(review.placeId);
 
-    const review: Review = {
-      id: randomUUID(),
-      placeId: placeId,
-      authorName: createReviewDto.authorName,
-      rating: createReviewDto.rating,
-      comment: createReviewDto.comment,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const document = await this.reviewsRepository.updateById(id, dto);
 
-    this.reviews.push(review);
-
-    let moyenne = place.averageRating;
-
-    if (moyenne === null) {
-      moyenne = 0;
+    if (!document) {
+      throw new NotFoundException(`Review ID ${id} pas trouvée`);
     }
 
-    place.averageRating =
-      (moyenne * place.reviewCount + review.rating) / (place.reviewCount + 1);
+    await this.placesService.refreshStatistics(review.placeId);
 
-    place.reviewCount++;
-
-    await this.jsonStorage.sauvegarder({
-      places: this.jsonStorage.places,
-      reviews: this.reviews,
-    });
-
-    return review;
-  }
-
-  async update(
-    id: string,
-    updateReviewDto: UpdateReviewDto,
-  ): Promise<Review> {
-    const review = this.findOne(id);
-    const place = this.placesService.findOne(review.placeId);
-
-    const ancienneNote = review.rating;
-
-    Object.assign(review, updateReviewDto);
-    review.updatedAt = new Date().toISOString();
-
-    let moyenne = place.averageRating;
-
-    if (moyenne === null) {
-      moyenne = 0;
-    }
-
-    if (updateReviewDto.rating !== undefined) {
-      place.averageRating =
-        (moyenne * place.reviewCount - ancienneNote + review.rating) /
-        place.reviewCount;
-    }
-
-    await this.jsonStorage.sauvegarder({
-      places: this.jsonStorage.places,
-      reviews: this.reviews,
-    });
-
-    return review;
+    return toReview(document);
   }
 
   async remove(id: string): Promise<void> {
-    const review = this.findOne(id);
-    const place = this.placesService.findOne(review.placeId);
+    const review = await this.findOne(id);
+    await this.placesService.findOne(review.placeId);
 
-    let moyenne = place.averageRating;
-
-    if (moyenne === null) {
-      moyenne = 0;
-    }
-
-    const totalNotes = moyenne * place.reviewCount - review.rating;
-
-    const index = this.reviews.indexOf(review);
-    this.reviews.splice(index, 1);
-
-    place.reviewCount--;
-
-    if (place.reviewCount === 0) {
-      place.averageRating = null;
-    } else {
-      place.averageRating = totalNotes / place.reviewCount;
-    }
-
-    await this.jsonStorage.sauvegarder({
-      places: this.jsonStorage.places,
-      reviews: this.reviews,
-    });
+    await this.reviewsRepository.deleteById(id);
+    await this.placesService.refreshStatistics(review.placeId);
   }
 }
