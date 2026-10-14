@@ -31,7 +31,7 @@ async function bootstrap() {
 
   app.use(helmet());
 
-  // Journalisation des opérations normales de l'API
+  // Journalisation des opérations et des erreurs HTTP
   const httpLogger = new Logger('HTTP');
 
   app.use((request: Request, response: Response, next: NextFunction) => {
@@ -46,14 +46,18 @@ async function bootstrap() {
     const startedAt = performance.now();
 
     response.once('finish', () => {
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        method: request.method,
+        path: request.path,
+        statusCode: response.statusCode,
+        duration: `${(performance.now() - startedAt).toFixed(1)} ms`,
+      };
+
       if (response.statusCode < 400) {
-        httpLogger.log({
-          timestamp: new Date().toISOString(),
-          method: request.method,
-          path: request.path,
-          statusCode: response.statusCode,
-          duration: `${(performance.now() - startedAt).toFixed(1)} ms`,
-        });
+        httpLogger.log(logEntry);
+      } else {
+        httpLogger.error(logEntry);
       }
     });
 
