@@ -4,7 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
-
+import { ContentTypeGuard } from './common/guards/content-type.guard';
 import databaseConfig from './config/database.config';
 import { PlacesModule } from './places/places.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -44,6 +44,10 @@ import { ReviewsModule } from './reviews/reviews.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ContentTypeGuard,
     },
   ],
 })

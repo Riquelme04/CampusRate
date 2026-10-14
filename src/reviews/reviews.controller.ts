@@ -194,6 +194,25 @@ export class ReviewsController {
       },
     },
   })
+  @ApiResponse({
+    status: 415,
+    description: 'Content-Type absent ou non pris en charge',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Type de média non pris en charge',
+          status: 415,
+          detail: 'Le Content-Type doit être application/json.',
+          instance:
+            '/api/v1/places/d6d0cbc4-2ee0-434e-b5f1-debe894f2054/reviews',
+        },
+      },
+    },
+  })
   async create(
     @Param('placeId') placeId: string,
     @Body() createReviewDto: CreateReviewDto,
@@ -284,6 +303,24 @@ export class ReviewsController {
           title: 'Corps de la requête trop volumineux',
           status: 413,
           detail: 'Le corps de la requête dépasse la limite de 10 Ko.',
+          instance: '/api/v1/reviews/c3fa3996-9b94-419e-ba8c-13269cc55f0e',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 415,
+    description: 'Content-Type absent ou non pris en charge',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Type de média non pris en charge',
+          status: 415,
+          detail: 'Le Content-Type doit être application/json.',
           instance: '/api/v1/reviews/c3fa3996-9b94-419e-ba8c-13269cc55f0e',
         },
       },
