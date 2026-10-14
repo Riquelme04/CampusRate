@@ -13,8 +13,16 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
+  // Origines CORS selon l'environnement
+  const environment = configService.get<string>('NODE_ENV', 'development');
+
+  const originsVariable =
+    environment === 'production'
+      ? 'CORS_ORIGINS_PRODUCTION'
+      : 'CORS_ORIGINS_DEVELOPMENT';
+
   const allowedOrigins = configService
-    .get<string>('CORS_ORIGINS', '')
+    .get<string>(originsVariable, '')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
