@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Error as MongooseError, mongo } from 'mongoose';
@@ -15,6 +16,8 @@ type NestErrorBody = {
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ProblemDetailsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
@@ -41,6 +44,13 @@ export class ProblemDetailsFilter implements ExceptionFilter {
             ? [exceptionResponse]
             : [];
     } else if (
+      exception instanceof Error &&
+      'type' in exception &&
+      exception.type === 'entity.too.large'
+    ) {
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      messages = ['Le corps de la requête dépasse la limite de 10 Ko.'];
+    } else if (
       exception instanceof MongooseError.ValidationError ||
       exception instanceof MongooseError.CastError
     ) {
@@ -63,6 +73,18 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
     const title = this.getTitle(status);
 
+    // Contexte des erreurs techniques, sans message brut ni secret
+    if (status >= 500) {
+      this.logger.error({
+        timestamp: new Date().toISOString(),
+        method: request.method,
+        path: request.path,
+        statusCode: status,
+        errorType: exception instanceof Error ? exception.name : 'UnknownError',
+        title,
+      });
+    }
+
     response
       .status(status)
       .type('application/problem+json')
@@ -83,7 +105,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       400: 'Données invalides',
       404: 'Ressource introuvable',
       409: 'Conflit',
+      413: 'Corps de la requête trop volumineux',
       415: 'Type de média non pris en charge',
+      429: 'Trop de requêtes',
       500: 'Erreur interne',
       503: 'Service indisponible',
     };
