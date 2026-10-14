@@ -56,3 +56,5 @@ export class Place {
 }
 
 export const PlaceSchema = SchemaFactory.createForClass(Place);
+
+PlaceSchema.index({ category: 1, createdAt: 1, id: 1 });
