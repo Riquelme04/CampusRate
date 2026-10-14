@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Error as MongooseError, mongo } from 'mongoose';
@@ -15,6 +16,8 @@ type NestErrorBody = {
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ProblemDetailsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
@@ -69,6 +72,18 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     }
 
     const title = this.getTitle(status);
+
+    // Contexte des erreurs techniques, sans message brut ni secret
+    if (status >= 500) {
+      this.logger.error({
+        timestamp: new Date().toISOString(),
+        method: request.method,
+        path: request.path,
+        statusCode: status,
+        errorType: exception instanceof Error ? exception.name : 'UnknownError',
+        title,
+      });
+    }
 
     response
       .status(status)
