@@ -176,6 +176,25 @@ export class ReviewsController {
     },
   })
   @ApiResponse({
+    status: 409,
+    description: 'Conflit avec une valeur unique existante',
+    content: {
+      'application/problem+json': {
+        schema: {
+          $ref: getSchemaPath(ProblemDetailsDto),
+        },
+        example: {
+          type: 'about:blank',
+          title: 'Conflit',
+          status: 409,
+          detail: 'Une ressource avec cette valeur unique existe déjà.',
+          instance:
+            '/api/v1/places/d6d0cbc4-2ee0-434e-b5f1-debe894f2054/reviews',
+        },
+      },
+    },
+  })
+  @ApiResponse({
     status: 413,
     description: 'Corps de la requête supérieur à 10 Ko',
     content: {
