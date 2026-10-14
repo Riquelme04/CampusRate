@@ -1,12 +1,14 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory } from '@nestjs/core';
-import { config } from './config/config';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { Request, Response, NextFunction } from 'express';
+import helmet from 'helmet';
+
+import { config } from './config/config';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/filter/problem-details.filter';
-import { ConfigService } from '@nestjs/config';
-import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -29,9 +31,35 @@ async function bootstrap() {
 
   app.use(helmet());
 
+  // Méthodes autorisées pour les routes de l'API
+  const allowedMethods = ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'];
+
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    const isApiRoute =
+      request.path === '/api' || request.path.startsWith('/api/');
+
+    if (isApiRoute && !allowedMethods.includes(request.method)) {
+      response
+        .status(405)
+        .setHeader('Allow', allowedMethods.join(', '))
+        .type('application/problem+json')
+        .json({
+          type: 'about:blank',
+          title: 'Méthode non autorisée',
+          status: 405,
+          detail: 'Cette méthode HTTP est interdite pour cette API.',
+          instance: request.originalUrl,
+        });
+
+      return;
+    }
+
+    next();
+  });
+
   app.enableCors({
     origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: allowedMethods,
     allowedHeaders: ['Content-Type', 'Accept'],
     exposedHeaders: ['Location'],
   });
